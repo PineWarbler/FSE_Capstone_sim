@@ -116,8 +116,9 @@ if __name__ == "__main__":
     spi.bits_per_word = 16 # always a multiple of 8
     
     # disable the default CS pin
-    spi.no_cs(False) # slightly unintuitive. see https://forums.raspberrypi.com/viewtopic.php?t=178629
-    spi.threewire(True) # the MCP4921 doesn't have a MISO pin
+    spi.no_cs
+    # spi.no_cs(False) # slightly unintuitive. see https://forums.raspberrypi.com/viewtopic.php?t=178629
+    spi.threewire # the MCP4921 doesn't have a MISO pin
 
     #config GPIO
     GPIO.setmode(GPIO.BCM)
