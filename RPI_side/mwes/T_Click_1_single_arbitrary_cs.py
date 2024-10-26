@@ -3,7 +3,7 @@
 
 import spidev
 import time
-import RPi.GPIO as GPIO
+import gpiozero # because RPi.GPIO is unsupported on RPi5
 
 class T_CLICK_1:
     R_IN = 20E3 # ohms
@@ -63,18 +63,15 @@ class T_CLICK_1:
         return int(DAC_CODE_float)
 
 
-def writeToSPI(spi, CS_PIN, msgList: bytearray):
+def writeToSPI(spi, cs_obj, msgList: list[int]):
     ''' 
-    a wrapper for spi.xfer2 that allows custom CS pins
+    a wrapper for spi.xfer2 that allows a custom CS pin
     '''
-    GPIO.output(CS_PIN, False) # initiate transaction by pulling low
+    cs_obj.off() # initiate transaction by pulling low
     spi.xfer2(msgList)
-    GPIO.output(CS_PIN, True) # end transaction
+    cs_obj.on()
 
-# def get_padded_bin(int_in: int, padded_len: int) -> bytes:
-#     return '0b' + "0"*(padded_len - (len(bin(int_in)[2:]))) + bin(int_in)[2:]
-
-def mainLoop(t1: T_CLICK_1, spi):
+def mainLoop(t1: T_CLICK_1, spi, cs_obj):
     while True:
         try:
             maValStr = input("mA value to write: ")
@@ -88,7 +85,7 @@ def mainLoop(t1: T_CLICK_1, spi):
             
             # 12 bits is not an integer number of bytes, so need to pass bits instead?
             
-            writeToSPI(spi, CS_PIN, bytearray(t1.get_command_for(maVal)))
+            writeToSPI(spi, cs_obj, [t1.get_command_for(maVal)])
             
         except KeyboardInterrupt:
             break
@@ -97,13 +94,15 @@ def mainLoop(t1: T_CLICK_1, spi):
 
 if __name__ == "__main__":
 
-    CS_PIN = 24 # arbitrary CS pin number on RPI
+    CS_PIN = "GPIO26" # arbitrary CS pin number on RPI
+    # or an supply an integer. see https://gpiozero.readthedocs.io/en/stable/recipes.html#pin-numbering
 
 
     # bus zero supports up to 2 CS assignments; bus one supports up to 3 CS pins
     # https://forums.raspberrypi.com/viewtopic.php?t=126912
     bus = 0 # RPI has only two SPI buses: 0 and 1
     device = 1 # Device is the chip select pin. Set to 0 or 1, depending on the connections
+    # max allowable device index is equal to number of select pins minus one
 
     spi = spidev.SpiDev()
 
@@ -117,13 +116,11 @@ if __name__ == "__main__":
     
     # disable the default CS pin
     spi.no_cs
-    # spi.no_cs(False) # slightly unintuitive. see https://forums.raspberrypi.com/viewtopic.php?t=178629
     spi.threewire # the MCP4921 doesn't have a MISO pin
 
     #config GPIO
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(CS_PIN, GPIO.OUT)
-    GPIO.setwarnings(False)
+    cs = gpiozero.DigitalOutputDevice(CS_PIN, active_high=True)
+    cs.on() # default to non-active spi
     
     t1 = T_CLICK_1()
     

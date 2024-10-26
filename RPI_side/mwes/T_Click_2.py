@@ -5,6 +5,7 @@ Created on Mon Oct 21 16:06:35 2024
 @author: REYNOLDSPG21
 """
 import binascii
+from ChipSelect_Abstraction import Master_CS
 
 # import spidev
 # import time
@@ -29,23 +30,23 @@ class DAC997_status:
     def from_8bit_response(cls, status_word: int):
         ''' alternative constructor. Call using d = DAC997_status.from_8bit_response(my_status_word)'''
         # force to int to allow for masking operations below
-        if isinstance(status_data, str):
-            status_data = int(status_data, 2)
-            if status_data > 2**8-1:
+        if isinstance(status_word, str):
+            status_word = int(status_word, 2)
+            if status_word > 2**8-1:
                 raise ValueError("Failed to cast argument to int")
            
-        dac_res = int((status_data & T_CLICK_2.STATUS_DAC_RES_BIT_MASK) >> 5 ) # should always output 111_2 = 7_10
+        dac_res = int((status_word & T_CLICK_2.STATUS_DAC_RES_BIT_MASK) >> 5 ) # should always output 111_2 = 7_10
         
-        errlvl_pin_state = int((status_data & T_CLICK_2.STATUS_ERRLVL_PIN_BIT_MASK) >> 4 )
+        errlvl_pin_state = int((status_word & T_CLICK_2.STATUS_ERRLVL_PIN_BIT_MASK) >> 4 )
         
         # frame error sticky bit (1: Frame error has occurred since last Status read) (0: no frame error occurred)
-        ferr_sts = int((status_data & T_CLICK_2.STATUS_ERRLVL_PIN_BIT_MASK) >> 3 )
+        ferr_sts = int((status_word & T_CLICK_2.STATUS_ERRLVL_PIN_BIT_MASK) >> 3 )
         
-        spi_timeout_err = int((status_data & T_CLICK_2.STATUS_SPI_TIMEOUT_ERR_BIT_MASK) >> 2 )
+        spi_timeout_err = int((status_word & T_CLICK_2.STATUS_SPI_TIMEOUT_ERR_BIT_MASK) >> 2 )
         
-        loop_sts = int((status_data & T_CLICK_2.STATUS_LOOP_STS_BIT_MASK) >> 1 )
+        loop_sts = int((status_word & T_CLICK_2.STATUS_LOOP_STS_BIT_MASK) >> 1 )
         
-        curr_loop_sts = int((status_data & T_CLICK_2.STATUS_CURR_LOOP_STS_BIT_MASK) >> 0 )
+        curr_loop_sts = int((status_word & T_CLICK_2.STATUS_CURR_LOOP_STS_BIT_MASK) >> 0 )
         return cls(dac_res, errlvl_pin_state, ferr_sts, spi_timeout_err, loop_sts, curr_loop_sts)
     
     
@@ -59,11 +60,11 @@ class DAC997_status:
         bs += f"curr_loop_status : {self.curr_loop_sts}"
         return bs
 
-spi_master(spi, CS_obj)
-dacobj.setoutputcurr(amount, spi) * assumes CS has already been treated (not ideal because might need to toggle CS pin mid-command)
-dacobj.setoutputcurr(amount, spi_master, cs_master)
-OR
-spi_master.
+# spi_master(spi, CS_obj)
+# dacobj.setoutputcurr(amount, spi) * assumes CS has already been treated (not ideal because might need to toggle CS pin mid-command)
+# dacobj.setoutputcurr(amount, spi_master, cs_master)
+# OR
+# spi_master.
 
 class T_CLICK_2:
     # R_IN = 20E3 # ohms
@@ -101,6 +102,7 @@ class T_CLICK_2:
     CURRENT_OUTPUT_RANGE_MAX = 20.0
     
     def __init__(self, output_channel_name, spi, cs: Master_CS):
+        ''' note: cs : Master_CS , must support select(outputChannelName) and deselect_all() '''
         self.spi_master = spi
         # check for essential configuration: bits per word = 16
         if self.spi_master.bits_per_word != T_CLICK_2.BITS_PER_TRANSACTION:
@@ -108,7 +110,7 @@ class T_CLICK_2:
             self.spi_master.bits_per_word = T_CLICK_2.BITS_PER_TRANSACTION
             
         self.cs_master = cs
-        self.output_channel_name = output_channel_name # used in calls to cs_master.select
+        self.output_channel_name = output_channel_name # unique for each instance; used in calls to cs_master.select
         self.dac997_status = DAC997_status() # initialize to empty data model
     
     def write_data(self, reg: int, data_in: int): # TODO: add return type hint for type of `resp`
@@ -127,7 +129,7 @@ class T_CLICK_2:
     def set_output_current(self, mA_val: float) -> None:
         ''' produces as 24-bit word REG+DACCODE, and writes it to SPI '''
         # modeled after c420mat2_set_output_current
-        if (mA_val < CURRENT_OUTPUT_RANGE_MIN) or (mA_val > CURRENT_OUTPUT_RANGE_MAX):
+        if (mA_val < self.CURRENT_OUTPUT_RANGE_MIN) or (mA_val > self.CURRENT_OUTPUT_RANGE_MAX):
             raise ValueError(f"The requested current value of {mA_val} mA is outside the valid range of the transmitter.")
             
         self.write_data(self.REG_DACCODE, self._convert_mA_to_DAC_code(mA_val))
@@ -150,6 +152,34 @@ class T_CLICK_2:
         # says its (0x09 | 0x080). see datasheet page 11
         self.dac997_status = DAC997_status.from_8bit_response(register_contents)
         return self.dac997_status
+    
+    def write_NOP(self) -> None:
+        '''datasheet: indicates that the SPI connection is functioning and is used to avoid SPI_INACTIVE errors.'''
+        self.write_data(self.REG_NOP, self.DUMMY)
+        
+    def set_error_config_mode(self, retry_loop_time_ms: float, enable_retry_loop: bool, maskLooperr: bool, dis_loop_err_errb: bool,
+                              mask_spi_err: bool, spi_timeout_ms: float, mask_spi_tout: bool):
+        # convert non-bools to ints for command building later
+        code_loop_retry_time = int((retry_loop_time_ms / 50.0) - 1) # convert from ms to code
+        code_spi_timeout_ms = int((retry_loop_time_ms / 50.0) - 1)
+        
+        code_loop_retry_time = min(7, code_loop_retry_time) # chop down to fit within the three bit field length
+        code_spi_timeout_ms = min(7, code_spi_timeout_ms)
+        
+        data_word = 0
+        data_word += code_loop_retry_time << 7 # three bits reserved, so max is 400 ms
+        data_word += int(enable_retry_loop) << 6
+        data_word += int(maskLooperr) << 5
+        data_word += int(dis_loop_err_errb) << 4
+        data_word += int(code_spi_timeout_ms) << 3
+        data_word += int(mask_spi_tout) << 0
+        
+        self.write_data(self.REG_ERR_CONFIG, data_word)
+    
+    def reset(self) -> None:
+        ''' return all writable registers to their defaults '''
+        self.write_data(self.REG_RESET, 0xC33C) # see datasheet pg 15
+        self.write_NOP()
     
        
         

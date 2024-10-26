@@ -5,9 +5,8 @@ Created on Sun Oct 20 14:19:42 2024
 @author: REYNOLDSPG21
 """
 
-from abc import ABC, abstractmethod
 import warnings
-# import RPi.GPIO as GPIO
+import gpiozero # because RPi.GPIO is unsupported on RPi5
 
 # import spidev
 
@@ -65,6 +64,7 @@ class Master_CS:
         # TODO: add conflict checking if user doesn't provide strobe pins for kind "decoder"
         if self.strobe_pins is not None:
             print("[init] default set first strobe pin to high")
+            gpiozero.DigitalOutputDevice(self.strobe_pins[0], active_high=True).on()
             # GPIO.output(self.strobe_pins[0], 1) # disable decoder outputs by default
         
         #config GPIO
@@ -72,6 +72,7 @@ class Master_CS:
         # for n in gpio_pin_nums:    
         #     GPIO.setup(n, GPIO.OUT)
         # GPIO.setwarnings(False)
+            
     
     @property # getter
     def kind(self):
@@ -165,13 +166,22 @@ class Master_CS:
     def select(self, output_channel_to_select: any) -> None:
         ''' write to the gpio pin states needed to select the requested chip '''
         pin_nums, pin_states = self.get_pin_states_for_selecting_channel(output_channel_to_select)
+        
+        # write those digital states to the pins
         for i in range(0, len(pin_nums)):
+            if pin_states[i] == 1:    
+                gpiozero.DigitalOutputDevice(pin_nums[i]).on()
+            else:
+                gpiozero.DigitalOutputDevice(pin_nums[i]).off()
             print(f"pin_no: {pin_nums[i]}, pin_state: {pin_states[i]}")
             # GPIO.output(pin_nums[i], pin_states[i])
             
+        # on the 74xxx series of decoders, enabling the demuxer is achieved when all strobe pins are low
         if self.strobe_pins is not None:
-            print(f"set strobe pin {self.strobe_pins[0]} to high")
-            # GPIO.output(self.strobe_pins[0], 1) # after this command, the demux will be active
+            for sp in self.strobe_pins:
+                gpiozero.DigitalOutputDevice(sp).off() # after this command, the demux will be active
+                print(f"set strobe pin {self.strobe_pins[0]} to off")
+            # GPIO.output(self.strobe_pins[0], 1) 
         
     def deselect_all(self) -> None:
         # need to set one of of decoder strobe inputs HIGH
