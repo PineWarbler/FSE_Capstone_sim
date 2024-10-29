@@ -35,18 +35,17 @@ class T_CLICK_1:
     def get_command_for(self, maVal: float) -> int:
         ''' based on MCP4921 datasheet'''
         # first four msb bits are for config instructions
-        first_part = [0,self.BUF, self.GAB, self.SHDNB]
-        
-        command_as_int = 0
-        # convert first four bits from binary to base 10
-        for i in range(0, len(first_part)):
-            command_as_int += first_part[i] * 2**(T_CLICK_1.BITS_PER_TRANSACTION-i-1)
+        command = 0
+        command += 0 << self.BITS_PER_TRANSACTION
+        command += self.BUF << self.BITS_PER_TRANSACTION - 1
+        command += self.GAB << self.BITS_PER_TRANSACTION -2
+        command += self.SHDNB << self.BITS_PER_TRANSACTION - 3
         
         # add the actual DAC signal code
-        command_as_int += self._convert_mA_to_DAC_code(maVal)
+        command += self._convert_mA_to_DAC_code(maVal)
         
         # cast to 2 bytes
-        return int(command_as_int) # .to_bytes(int(T_CLICK_1.BITS_PER_TRANSACTION/8), byteorder="big")
+        return int(command)#.to_bytes(int(T_CLICK_1.BITS_PER_TRANSACTION/8), byteorder="big")
     
     
     def _convert_mA_to_DAC_code(self, mA_value: float) -> int:
@@ -65,6 +64,7 @@ class T_CLICK_1:
         DAC_CODE_float = abs((Amps_value * T_CLICK_1.R_IN * 2**T_CLICK_1.BIT_RES) / (100*T_CLICK_1.V_REF))
         DAC_CODE_float = min(DAC_CODE_float, 2**T_CLICK_1.BIT_RES-1) # safety
         return int(DAC_CODE_float)
+
 
 
 def writeToSPI(spi, cs_obj, msgList: list[int]):
