@@ -5,6 +5,10 @@ import spidev
 import time
 import gpiozero # because RPi.GPIO is unsupported on RPi5
 
+# these lines to free any previous lgpio resources. see https://forums.raspberrypi.com/viewtopic.php?t=362014
+import os
+os.environ['GPIO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY','mock')
+
 class T_CLICK_1:
     R_IN = 20E3 # ohms
     V_REF = 4.096 # Volts
@@ -28,7 +32,7 @@ class T_CLICK_1:
         self.GAB = GAB
         self.BUF = BUF
     
-    def get_command_for(self, maVal: float) -> bytes:
+    def get_command_for(self, maVal: float) -> int:
         ''' based on MCP4921 datasheet'''
         # first four msb bits are for config instructions
         first_part = [0,self.BUF, self.GAB, self.SHDNB]
@@ -42,7 +46,7 @@ class T_CLICK_1:
         command_as_int += self._convert_mA_to_DAC_code(maVal)
         
         # cast to 2 bytes
-        return int(command_as_int).to_bytes(int(T_CLICK_1.BITS_PER_TRANSACTION/8), byteorder="big")
+        return int(command_as_int) # .to_bytes(int(T_CLICK_1.BITS_PER_TRANSACTION/8), byteorder="big")
     
     
     def _convert_mA_to_DAC_code(self, mA_value: float) -> int:
@@ -68,7 +72,7 @@ def writeToSPI(spi, cs_obj, msgList: list[int]):
     a wrapper for spi.xfer2 that allows a custom CS pin
     '''
     cs_obj.off() # initiate transaction by pulling low
-    spi.xfer2(msgList)
+    spi.xfer(msgList)
     cs_obj.on()
 
 def mainLoop(t1: T_CLICK_1, spi, cs_obj):
@@ -78,13 +82,13 @@ def mainLoop(t1: T_CLICK_1, spi, cs_obj):
             
             try:
                 maVal = float(maValStr)
-                if not maVal<0 or maVal>21:
+                if maVal<0 or maVal>21:
                     raise ValueError
             except ValueError:
                 print("invalid input. Try again")
             
             # 12 bits is not an integer number of bytes, so need to pass bits instead?
-            
+            print(f"maVal to write is {maVal}")
             writeToSPI(spi, cs_obj, [t1.get_command_for(maVal)])
             
         except KeyboardInterrupt:
@@ -101,7 +105,7 @@ if __name__ == "__main__":
     # bus zero supports up to 2 CS assignments; bus one supports up to 3 CS pins
     # https://forums.raspberrypi.com/viewtopic.php?t=126912
     bus = 0 # RPI has only two SPI buses: 0 and 1
-    device = 1 # Device is the chip select pin. Set to 0 or 1, depending on the connections
+    device = 0 # Device is the chip select pin. Set to 0 or 1, depending on the connections
     # max allowable device index is equal to number of select pins minus one
 
     spi = spidev.SpiDev()
@@ -111,8 +115,8 @@ if __name__ == "__main__":
 
     # Set SPI speed and mode
     spi.max_speed_hz = 5000 # start slow at first
-    spi.mode = 0
-    spi.bits_per_word = 16 # always a multiple of 8
+    spi.mode = 0b00
+    spi.bits_per_word = 8 # would prefer 16, but this is the maximum supported by the Pi's spi driver
     
     # disable the default CS pin
     spi.no_cs
@@ -125,4 +129,7 @@ if __name__ == "__main__":
     t1 = T_CLICK_1()
     
     
-    mainLoop(t1, spi)
+    mainLoop(t1, spi, cs)
+    
+    spi.close()
+    cs.off()
