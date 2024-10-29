@@ -33,43 +33,56 @@ class Master_CS:
     # needs a list of pins and a list of output channel names
     allowed_kinds = ["one-to-one", "2-4_decoder", "3-8_decoder", "4-16_decoder", "5-32_decoder"]
     
-    def __init__(self, kind, spi, gpio_pin_nums: list[int], output_channel_names: list[any], strobe_pins: list[int]=None, spi_polarity="active_low"):
+    def __init__(self, kind, spi, gpio_pins: list[gpiozero.output_devices.DigitalOutputDevice], 
+                 output_channel_names: list[any], 
+                 strobe_pins: list[gpiozero.output_devices.DigitalOutputDevice]=None, 
+                 spi_polarity="active_low"):
         '''
         `kind`: str, may be one of ["one-to-one", "2-4_decoder", "3-8_decoder", "4-16_decoder", "5-32_decoder"]
         
         `spi` : spi object
         
-        `gpio_pin_nums`:
+        `gpio_pins` : list[gpiozero.output_devices.DigitalOutputDevice]
                 These are the physical gpio pins responsible (mediately or immediately) for controlling CS lines downstream
                 In the case of "one-to-one", the gpio pins are directly connected to the CS lines.
                 In the decoder cases, the gpio pins are selector pins on a decoder IC, which this class
                 assumes produces outputs sufficient to activate the CS bus with the proper polarity.
+                These must be provided by the calling function because gpiozero pin states fall back to their defaults
+                once their gpiozero objects lose scope (not what we want if we have multiple instances of this class)
                 
-        `gpio_pin_nums` goes from msb to lsb
+        `gpio_pins` goes from msb to lsb for selection order (i.e. if want to select 28 in (26,27,28,29) on a 2-4_decoder with cs_pins=(4,5), 
+                would output 01 (for index 1=28))
         
-        `strobe_pins` : on the 74xxx series of decoders, deselecting all outputs is achieved only by
-        setting one of these pins high.  This argument is only needed if `kind` contains "decoder"
+        `strobe_pins` : list[gpiozero.output_devices.DigitalOutputDevice]
+            on the 74xxx series of decoders, deselecting all outputs is achieved only by
+            setting one of these pins high.  This argument is only needed if `kind` contains "decoder"
         
-        e.g. `cs=Master_CS("2-4_decoder", [24, 19], ["sig_foo", 1, 3.5, myObj])`
-        `for pin_no, pin_state in cs.get_pin_states_for_selecting_channel(3.5):
-             GPIO.output(pin, pin_status)`
+        e.g. `cs=Master_CS("2-4_decoder", my_spi, [gpio_obj1, gpio_obj_baz], ["sig_foo", 1, 3.5, myObj], strobe_pins=[gpio_obj_strobe1])`
+        `cs.select("sig_foo")
+        <spi transfer>
+        `cs.deselect_all()`
         '''
         self.kind = kind
         self.spi = spi
-        self.gpio_pin_nums = gpio_pin_nums
+        self.gpio_pins = gpio_pins
         self.output_channel_names = output_channel_names
         self.spi_polarity = spi_polarity
         self.strobe_pins = strobe_pins
         
         # TODO: add conflict checking if user doesn't provide strobe pins for kind "decoder"
+        
+        # disable decoder outputs by setting at least one high
+        # also, make a list of objects as a member var to ensure that scope is persistent within the class
+        # the gpiozero library resets pins to their default states after loss of scope (not what we want)...
         if self.strobe_pins is not None:
-            print("[init] default set first strobe pin to high")
-            gpiozero.DigitalOutputDevice(self.strobe_pins[0], active_high=True).on()
-            # GPIO.output(self.strobe_pins[0], 1) # disable decoder outputs by default
+            for p in self.strobe_pins:
+                p.value = 1
+            print("[init] ensured that strobe_pins are High")      
+
         
         #config GPIO
         # GPIO.setmode(GPIO.BCM)
-        # for n in gpio_pin_nums:    
+        # for n in gpio_pins:    
         #     GPIO.setup(n, GPIO.OUT)
         # GPIO.setwarnings(False)
             
@@ -86,19 +99,19 @@ class Master_CS:
     # TODO: add property for spi object with setter type checking
         
     @property # getter
-    def gpio_pin_nums(self):
-        return self._gpio_pin_nums
+    def gpio_pins(self):
+        return self._gpio_pins
     
-    @gpio_pin_nums.setter
-    def gpio_pin_nums(self, o_gpio_pin_nums):
-        if not isinstance(o_gpio_pin_nums, list):
-            raise ValueError("gpio_pin_nums must be a list")
+    @gpio_pins.setter
+    def gpio_pins(self, o_gpio_pins):
+        if not isinstance(o_gpio_pins, list):
+            raise ValueError("gpio_pins must be a list")
             
         # if the user provides too many gpio pins for the decoder type specified...
-        if self.kind!="one-to-one" and len(o_gpio_pin_nums) > int(self.kind[0]):
-            self._gpio_pin_nums = o_gpio_pin_nums[0:int(self.kind[0])+1]
-            warnings.warn(f"You provided {len(o_gpio_pin_nums)} gpio pin numbers, which is too many for the decoder of type `{self.kind}` which you selected.\n Will truncate pins to first {int(self.kind[0])}.")
-        self._gpio_pin_nums = o_gpio_pin_nums
+        if self.kind!="one-to-one" and len(o_gpio_pins) > int(self.kind[0]):
+            self._gpio_pins = o_gpio_pins[0:int(self.kind[0])+1]
+            warnings.warn(f"You provided {len(o_gpio_pins)} gpio pin numbers, which is too many for the decoder of type `{self.kind}` which you selected.\n Will truncate pins to first {int(self.kind[0])}.")
+        self._gpio_pins = o_gpio_pins
     
     @property # getter
     def output_channel_names(self):
@@ -107,10 +120,10 @@ class Master_CS:
     def output_channel_names(self, o_output_channel_names):
         # note: length of output_channel_names could be less than max capacity of decoder
         # if user leaves some decoder channels unused
-        if "decoder" in self.kind and len(o_output_channel_names)>2**len(self.gpio_pin_nums):
+        if "decoder" in self.kind and len(o_output_channel_names)>2**len(self.gpio_pins):
             raise ValueError("Type is decoder, but number of gpio_pins is insufficient to satisfy the number of outputs")
-        if self.kind=="one-to-one" and len(o_output_channel_names)>len(self.gpio_pin_nums):
-            warnings.warn(f"For one-to-one mode, expected to receive list no longer than gpio_pin_nums, but received list of length {len(o_output_channel_names)} instead. Some of the later channels will not be reachable")
+        if self.kind=="one-to-one" and len(o_output_channel_names)>len(self.gpio_pins):
+            warnings.warn(f"For one-to-one mode, expected to receive list no longer than gpio_pins, but received list of length {len(o_output_channel_names)} instead. Some of the later channels will not be reachable")
         self._output_channel_names = o_output_channel_names
         
     @property # getter
@@ -139,21 +152,21 @@ class Master_CS:
         if "decoder" in self.kind:
             output_idx = self.output_channel_names.index(output_channel_to_select) # find index of the requested channel name
             
-            my_str = self._get_padded_bin_str(output_idx, len(self.gpio_pin_nums))
+            my_str = self._get_padded_bin_str(output_idx, len(self.gpio_pins))
             pin_states = [int(i) for i in my_str] # convert to list of integers
-            return (self.gpio_pin_nums, pin_states)
+            return (self.gpio_pins, pin_states)
         
         elif self.kind=="one-to-one":
             output_idx = self.output_channel_names.index(output_channel_to_select)
-            if output_idx>=len(self.gpio_pin_nums):
+            if output_idx>=len(self.gpio_pins):
                 raise IndexError(f"The requested channel is at index {output_idx}, which exceeds the number of gpio_pins")
             # if self.spi_polarity=="active_low":
             #     active=0
             # else:
             #     active=1
-            pin_states = len(self.gpio_pin_nums)*[int(not self.active_as_int)] # initialize to all pins inactive
+            pin_states = len(self.gpio_pins)*[int(not self.active_as_int)] # initialize to all pins inactive
             pin_states[output_idx] = self.active_as_int
-            return ((self.gpio_pin_nums), pin_states)
+            return ((self.gpio_pins), pin_states)
         
         else:
             raise ValueError
@@ -169,10 +182,7 @@ class Master_CS:
         
         # write those digital states to the pins
         for i in range(0, len(pin_nums)):
-            if pin_states[i] == 1:    
-                gpiozero.DigitalOutputDevice(pin_nums[i]).on()
-            else:
-                gpiozero.DigitalOutputDevice(pin_nums[i]).off()
+            gpiozero.DigitalOutputDevice(pin_nums[i]).value = pin_states[i]
             print(f"pin_no: {pin_nums[i]}, pin_state: {pin_states[i]}")
             # GPIO.output(pin_nums[i], pin_states[i])
             
@@ -188,12 +198,14 @@ class Master_CS:
         
         # write all gpio pins to polarity type
         if self.kind == "one-to-one":
-            for i in range(0, len(self.gpio_pin_nums)):
-                print(f"one-to-one: set pin {self.gpio_pin_nums[i]} to {not self.active_as_int}.")
-                # GPIO.output(self.gpio_pin_nums[i], not self.active_as_int)
+            for p in self.gpio_pins:
+                print(f"one-to-one: set pin {p} to {not self.active_as_int}.")
+                p.value = int(not self.active_as_int)
+                # GPIO.output(self.gpio_pins[i], not self.active_as_int)
         
         if self.strobe_pins is not None:
             print(f"set strobe pin {self.strobe_pins[0]} to high.")
+            self.strobe_pins[0].value = 1
             # GPIO.output(self.strobe_pins[0], 1) # after this command, the demux will be active
             
     def close(self) -> None:
