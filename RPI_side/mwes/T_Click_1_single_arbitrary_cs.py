@@ -4,10 +4,12 @@
 import spidev
 import time
 import gpiozero # because RPi.GPIO is unsupported on RPi5
+import binascii
 
 # these lines to free any previous lgpio resources. see https://forums.raspberrypi.com/viewtopic.php?t=362014
 import os
 os.environ['GPIO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY','mock')
+
 
 class T_CLICK_1:
     R_IN = 20E3 # ohms
@@ -15,7 +17,7 @@ class T_CLICK_1:
     BIT_RES = 12 # for the MCP4921
     BITS_PER_TRANSACTION = 16
     
-    def __init__(self, SHDNB:int=1, GAB:int=1, BUF:int=0):
+    def __init__(self, SHDNB:int=1, GAB:int=1, BUF:int=0): # originally 1,1,0
         ''' T_CLICK_1 board has an MCP4921 (12-bit DAC) that feeds an XTR116 loop driver (voltage-to-current converter).
         This class provides a single function, `get_command_for(maVal)`, that considers both chips' behaviors. You can input
         a current value (4-20mA), and this class will tell you what 16-bit command you must place on the T_Click_1's SPI bus
@@ -32,20 +34,24 @@ class T_CLICK_1:
         self.GAB = GAB
         self.BUF = BUF
     
-    def get_command_for(self, maVal: float) -> int:
-        ''' based on MCP4921 datasheet'''
+    def get_command_for(self, maVal: float) -> list[int]:
+        ''' based on MCP4921 datasheet; returns a list of integers!'''
         # first four msb bits are for config instructions
         command = 0
-        command += 0 << self.BITS_PER_TRANSACTION
-        command += self.BUF << self.BITS_PER_TRANSACTION - 1
-        command += self.GAB << self.BITS_PER_TRANSACTION -2
-        command += self.SHDNB << self.BITS_PER_TRANSACTION - 3
+        command += 0 << self.BITS_PER_TRANSACTION-1
+        command += self.BUF << self.BITS_PER_TRANSACTION - 2
+        command += self.GAB << self.BITS_PER_TRANSACTION -3
+        command += self.SHDNB << self.BITS_PER_TRANSACTION - 4
         
         # add the actual DAC signal code
         command += self._convert_mA_to_DAC_code(maVal)
+
+        # sending as single int doesn't work.  Try splitting into two 8-bit ints
+        asBytes = int(command).to_bytes(int(T_CLICK_1.BITS_PER_TRANSACTION/8), byteorder="big")
         
-        # cast to 2 bytes
-        return int(command)#.to_bytes(int(T_CLICK_1.BITS_PER_TRANSACTION/8), byteorder="big")
+        returnList = [int(b) for b in asBytes] # separate into 8-bit chunks for the SPI channel's limitations on word length
+        print(f"return list is {returnList}")
+        return returnList
     
     
     def _convert_mA_to_DAC_code(self, mA_value: float) -> int:
@@ -71,8 +77,9 @@ def writeToSPI(spi, cs_obj, msgList: list[int]):
     ''' 
     a wrapper for spi.xfer2 that allows a custom CS pin
     '''
+    # what if cs input pin on T_CLICK1 is active high?
     cs_obj.off() # initiate transaction by pulling low
-    spi.xfer(msgList)
+    spi.writebytes(msgList)
     cs_obj.on()
 
 def mainLoop(t1: T_CLICK_1, spi, cs_obj):
@@ -86,10 +93,11 @@ def mainLoop(t1: T_CLICK_1, spi, cs_obj):
                     raise ValueError
             except ValueError:
                 print("invalid input. Try again")
+                continue
             
             # 12 bits is not an integer number of bytes, so need to pass bits instead?
             print(f"maVal to write is {maVal}")
-            writeToSPI(spi, cs_obj, [t1.get_command_for(maVal)])
+            writeToSPI(spi, cs_obj, t1.get_command_for(maVal))
             
         except KeyboardInterrupt:
             break
@@ -115,7 +123,7 @@ if __name__ == "__main__":
 
     # Set SPI speed and mode
     spi.max_speed_hz = 5000 # start slow at first
-    spi.mode = 0b00
+    spi.mode = 0
     spi.bits_per_word = 8 # would prefer 16, but this is the maximum supported by the Pi's spi driver
     
     # disable the default CS pin
@@ -123,8 +131,8 @@ if __name__ == "__main__":
     spi.threewire # the MCP4921 doesn't have a MISO pin
 
     #config GPIO
-    cs = gpiozero.DigitalOutputDevice(CS_PIN, active_high=True)
-    cs.on() # default to non-active spi
+    cs = gpiozero.DigitalOutputDevice(CS_PIN)
+    cs.off() # default to non-active spi
     
     t1 = T_CLICK_1()
     
@@ -132,4 +140,5 @@ if __name__ == "__main__":
     mainLoop(t1, spi, cs)
     
     spi.close()
-    cs.off()
+    
+    cs.close()
