@@ -181,9 +181,9 @@ class Master_CS:
         pin_nums, pin_states = self.get_pin_states_for_selecting_channel(output_channel_to_select)
         
         # write those digital states to the pins
-        for i in range(0, len(pin_nums)):
-            gpiozero.DigitalOutputDevice(pin_nums[i]).value = pin_states[i]
-            print(f"pin_no: {pin_nums[i]}, pin_state: {pin_states[i]}")
+        for i in range(0, len(self.gpio_pins)):
+            self.gpio_pins[i].value = pin_states[i]
+            print(f"wrote pin to pin_state: {pin_states[i]}")
             # GPIO.output(pin_nums[i], pin_states[i])
             
         # on the 74xxx series of decoders, enabling the demuxer is achieved when all strobe pins are low
@@ -199,7 +199,7 @@ class Master_CS:
         # write all gpio pins to polarity type
         if self.kind == "one-to-one":
             for p in self.gpio_pins:
-                print(f"one-to-one: set pin {p} to {not self.active_as_int}.")
+                print(f"[deselect_all]: one-to-one: set pin {p} to {not self.active_as_int}.")
                 p.value = int(not self.active_as_int)
                 # GPIO.output(self.gpio_pins[i], not self.active_as_int)
         

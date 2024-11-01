@@ -4,8 +4,18 @@ Created on Mon Oct 21 16:06:35 2024
 
 @author: REYNOLDSPG21
 """
-import binascii
+# import binascii
+import spidev
+import gpiozero
+
+import sys
+sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
+
 from ChipSelect_Abstraction import Master_CS
+
+# these lines to free any previous lgpio resources. see https://forums.raspberrypi.com/viewtopic.php?t=362014
+import os
+os.environ['GPIO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY','mock')
 
 # import spidev
 # import time
@@ -16,25 +26,30 @@ from ChipSelect_Abstraction import Master_CS
 
 class DAC997_status:
     ''' data model to parse and interpret the 8-bit STATUS word'''
-    def __init__(self, dac_res: int, errlvl_pin_state: int, ferr_sts: int, 
-                 spi_timeout_err: int, loop_sts: int, curr_loop_sts: int):
+    def __init__(self, dac_res: int = 0, errlvl_pin_state: int = 0, ferr_sts: int = 0, 
+                 spi_timeout_err: int = 0, loop_sts: int = 0, curr_loop_sts: int=0):
         ''' dummy init; if want to initialize using an 8-bit word, use method `from_8bit_response` '''
-        self.dac_res = None
-        self.errlvl_pin_state = None
-        self.ferr_sts = None
-        self.spi_timeout_err = None
-        self.loop_sts = None
-        self.curr_loop_sts = None
+        self.dac_res = dac_res
+        self.errlvl_pin_state = errlvl_pin_state
+        self.ferr_sts = ferr_sts
+        self.spi_timeout_err = spi_timeout_err
+        self.loop_sts = loop_sts
+        self.curr_loop_sts = curr_loop_sts
     
     @classmethod
-    def from_8bit_response(cls, status_word: int):
+    def from_response(cls, resp: list[int]):
         ''' alternative constructor. Call using d = DAC997_status.from_8bit_response(my_status_word)'''
         # force to int to allow for masking operations below
-        if isinstance(status_word, str):
-            status_word = int(status_word, 2)
-            if status_word > 2**8-1:
-                raise ValueError("Failed to cast argument to int")
-           
+        if len(resp) != 3:
+            raise ValueError(f"Expected length 3, but got length {len(resp)}")
+        
+        # status_word = resp[0] << 16
+        # status_word += resp[1] << 8
+        # status_word += resp[2]
+        status_word = resp[2]
+        # only care about last 8 lsbs
+        print(f"[from_response] status word is: {status_word}")
+        
         dac_res = int((status_word & T_CLICK_2.STATUS_DAC_RES_BIT_MASK) >> 5 ) # should always output 111_2 = 7_10
         
         errlvl_pin_state = int((status_word & T_CLICK_2.STATUS_ERRLVL_PIN_BIT_MASK) >> 4 )
@@ -71,7 +86,7 @@ class T_CLICK_2:
     # V_REF = 4.096 # Volts
     BIT_RES = 16 # for the DAC161S997
     BITS_PER_TRANSACTION = 24
-    BYTES_PER_TRANSACTION = BITS_PER_TRANSACTION/8
+    BYTES_PER_TRANSACTION = int(BITS_PER_TRANSACTION/8)
     # first 8 bits are command, last 16 are data
     
     REG_XFER = 0x01
@@ -102,25 +117,33 @@ class T_CLICK_2:
     CURRENT_OUTPUT_RANGE_MAX = 20.0
     
     def __init__(self, output_channel_name, spi, cs: Master_CS):
+        # for now, cs is just a gpiozero pin object
         ''' note: cs : Master_CS , must support select(outputChannelName) and deselect_all() '''
         self.spi_master = spi
         # check for essential configuration: bits per word = 16
-        if self.spi_master.bits_per_word != T_CLICK_2.BITS_PER_TRANSACTION:
-            print(f"overriding spi bits per word from {self.spi_master.bits_per_word} to {T_CLICK_2.BITS_PER_TRANSACTION}.")
-            self.spi_master.bits_per_word = T_CLICK_2.BITS_PER_TRANSACTION
+        # if self.spi_master.bits_per_word != T_CLICK_2.BITS_PER_TRANSACTION:
+            # print(f"overriding spi bits per word from {self.spi_master.bits_per_word} to {T_CLICK_2.BITS_PER_TRANSACTION}.")
+            # self.spi_master.bits_per_word = T_CLICK_2.BITS_PER_TRANSACTION
             
         self.cs_master = cs
         self.output_channel_name = output_channel_name # unique for each instance; used in calls to cs_master.select
-        self.dac997_status = DAC997_status() # initialize to empty data model
+        self.dac997_status = DAC997_status(None, None, None, None, None, None) # initialize to empty data model
     
     def write_data(self, reg: int, data_in: int): # TODO: add return type hint for type of `resp`
         ''' joins data to reg addr into a 24-bit (3-byte) word, then writes over SPI, 
         returning a 24-bit response which is the previous content held in the shift register'''
         # modeled after c420mat2_write_data
         full_command = (reg << T_CLICK_2.BIT_RES) + data_in # first 8 bits is REG, last 16 are actual data
-        
-        self.cs_master.select(self.output_channel_name) # prepare for write   
-        resp = self.spi_master.xfer2([full_command]) # also catches the shift register contents that are being shifted out
+        print(f"full command as int is {full_command}")
+        # split into three 8-bit words for Pi's spi limitation
+        asBytes = int(full_command).to_bytes(self.BYTES_PER_TRANSACTION, byteorder="big") # produces a bytearray of length 3
+        write_list = [int(b) for b in asBytes]
+        print(f"write_list is {write_list}")
+        self.cs_master.select(self.output_channel_name)
+        # self.cs_master.off() # initiate transaction by pulling cs low
+        # self.cs_master.select(self.output_channel_name) # prepare for write   
+        resp = self.spi_master.xfer(write_list) # also catches the shift register contents that are being shifted out
+        # self.cs_master.on()
         self.cs_master.deselect_all()
         return resp
         # self.dac997_status = DAC997_status.from_8bit_response(resp) # parse response and store in member variable
@@ -143,14 +166,17 @@ class T_CLICK_2:
     
     def read_status_register(self) -> 'DAC997_status':
         # requires two SPI transactions: one to send read command, another with dummy data to flush out the data from the registers
-#         The first transaction shifts in the register read command; an 8-bits of command byte followed by 16-bits of dummy data. The register read
-# command transfers the contents of the internal register into the FIFO. The second transaction shifts out the FIFO
-# contents; an 8-bit command byte (which is a copy of previous transaction) followed by the register data.
-        _ = self.write_data(self.REG_STATUS, self.DUMMY) # 8 bit command + 16 bits of dummy data
-        register_contents = self.write_data(self.REG_STATUS, self.DUMMY) # repeated to flush
+        # The first transaction shifts in the register read command; an 8-bits of command byte followed by 16-bits of dummy data. The register read
+        # command transfers the contents of the internal register into the FIFO. The second transaction shifts out the FIFO
+        # contents; an 8-bit command byte (which is a copy of previous transaction) followed by the register data.
+        r = self.write_data(self.REG_STATUS| 0x80, self.DUMMY) # 8 bit command + 16 bits of dummy data
+        print(f"first response is {r}")
+        
+        register_contents = self.write_data(self.REG_STATUS | 0x80, self.DUMMY) # repeated to flush, returns a list
+        print(f"raw register contents: {register_contents}") # this returns a list of three 8-bit numbers
         # TODO: What is the 8-bit command to read register? C drivers claim it's 0x09, but datasheet
         # says its (0x09 | 0x080). see datasheet page 11
-        self.dac997_status = DAC997_status.from_8bit_response(register_contents)
+        self.dac997_status = DAC997_status.from_response(register_contents)
         return self.dac997_status
     
     def write_NOP(self) -> None:
@@ -180,16 +206,36 @@ class T_CLICK_2:
         ''' return all writable registers to their defaults '''
         self.write_data(self.REG_RESET, 0xC33C) # see datasheet pg 15
         self.write_NOP()
-    
+        
+    def close(self) -> None:
+        pass
        
         
 
 if __name__ == "__main__":
-    t2 = T_CLICK_2()
-    # apparently, python printing does weird things to bytearrays....
-    # see https://stackoverflow.com/a/17093845
-    print(f"for 4 ma: {binascii.hexlify(t2.get_command_for(4))}")
-    print(f"for 20 ma: {binascii.hexlify(t2.get_command_for(20))}")
-    # check. These values agree with datasheet page 19
     
+    # --- INITIALIZE SPI ---
+    bus = 0 # RPI has only two SPI buses: 0 and 1
+    device = 0 # Device is the chip select pin. Set to 0 or 1, depending on the connections
+    # max allowable device index is equal to number of select pins minus one
+    spi = spidev.SpiDev()
+    # Open a connection to a specific bus and device (chip select pin)
+    spi.open(bus, device) # connects to /dev/spidev<bus>.<device>
+    # Set SPI speed and mode
+    spi.max_speed_hz = 5000 # start slow at first
+    spi.mode = 0
+    spi.bits_per_word = 8 # would prefer 16, but this is the maximum supported by the Pi's spi driver
+    # disable the default CS pin
+    spi.no_cs
+    cs_pins = [gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))]
+    cs = Master_CS("one-to-one", spi, cs_pins, ["ch1"])
     
+    t2 = T_CLICK_2('ch1', spi, cs)
+    # print(t2.read_status_register())
+    t2.set_output_current(12)
+    
+    # cleanup
+    t2.close()
+    spi.close()
+    for p in cs_pins:
+        p.close()
