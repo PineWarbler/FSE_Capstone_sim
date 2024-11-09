@@ -14,10 +14,14 @@ import json
 class dataEntry:
     '''
     dataEntry represents a single timestamped datum used for both analog and digital signals
-    e.g. "name": "channel1", "val": 3.14, "time": "2024-10-19 19:21:08.198100"
+    e.g. "sig_type": "ai", "name": "channel1", "val": 3.14, "time": "2024-10-19 19:21:08.198100"
     '''
-    def __init__(self, name: str, val: float, time: str=None):
+    allowed_sig_types = ["ao", "ai", "do", "di"]
+    
+    def __init__(self, sig_type: str, name: str, val: float, time: str=None):
+        # sig_type must be one of ["ao", "ai", "do", "di"]
         # name, val, time are parameters are to convert from discrete inputs to dataEntry 
+        self.sig_type = sig_type
         self.name = name
         self.val = val
         self.time = time
@@ -29,12 +33,22 @@ class dataEntry:
         '''
         
         # see https://gist.github.com/stavshamir/0f5bc3e663b7bb33dd2d7822dfcc0a2b#file-book-py
-        return cls(in_dict["name"], in_dict["val"], in_dict["time"])
+        return cls(in_dict["sig_type"], in_dict["name"], in_dict["val"], in_dict["time"])
     
     def as_dict(self):
         if self.time is None:
             self.time = str(datetime.now())
-        return {"name": self.name, "val": self.val, "time": self.time}
+        return {"sig_type": self.sig_type, "name": self.name, "val": self.val, "time": self.time}
+    
+    @property
+    def sig_type(self):
+        return self._sig_type
+    
+    @sig_type.setter
+    def sig_type(self, o_sig_type):
+        if not isinstance(o_sig_type, str) or o_sig_type not in self.allowed_sig_types:
+            raise TypeError(f"Expected one of {self.allowed_sig_types} as `sig_type`, but received {str(o_sig_type)}")
+        self._sig_type = o_sig_type
         
     @property
     def name(self):
@@ -120,20 +134,19 @@ class DataPacketModel:
     poll an active socket to parse out data values into an instance of this class
     
     Elements:
-        analog values
-        digital values
-        error entries
+        dataEntries: a list of dataEntry objects that can hold analog or digital values
+        error entries: a list of erroEntry objects
     
     msg_type is a single character that denotes the type of packet being sent/received
-
-    example usage:
-    1. Set member attributes `analog_values`, `digital_values`, and (optionally) `error_entries`
-    2. call `get_packet_as_string`
+    
+    Once member attributes `dataEntries` are set, call `get_packet_as_string`, which will pack into a
+    string ready to be sent over a socket
+    
+    OR, can use DataPacketModel.from_socket(sock) to create an instance from data waiting on sock buffer
     '''
 
     def __init__(self, 
-                 analog_values: List[type(dataEntry)], 
-                 digital_values: List[type(dataEntry)], 
+                 dataEntries: List[type(dataEntry)], 
                  msg_type : str,
                  error_entries: List[type(errorEntry)]=None,
                  time: str = None):
@@ -141,8 +154,7 @@ class DataPacketModel:
         
         # these are bi-directional.  If master sends a packet, all values will be outputted by the Pi
         # vice-versa: if Pi sends to master, they report input data
-        self.analog_values = analog_values
-        self.digital_values = digital_values
+        self.data_entries = dataEntries
         self.error_entries = error_entries
         self.msg_type = msg_type
         self.time = time
@@ -181,17 +193,20 @@ class DataPacketModel:
             data_str += active_socket.recv(msg_length-len(data_str)).decode()
         print("data string is " + str(data_str))
             
-        data = json.loads(data_str)
+        json_payload = json.loads(data_str)
         
-        time = data.get("time")
-        data_list = data["data"]
-        analog_entries = data_list[0]
-        digital_entries = data_list[1]
-        analog_values = [dataEntry.from_dict(a) for a in analog_entries.get("analog_values")]
-        digital_values = [dataEntry.from_dict(d) for d in digital_entries.get("digital_values")]
-        error_entries = [errorEntry.from_dict(e) for e in data.get("errors")]
+        time = json_payload.get("time")
+        data = json_payload["data"] # is a list of data entry dictionaries
+        errors = json_payload.get("errors") # might be None
+        
+        # call parsing functions to load entry objects from dictionaries
+        dataEntries = [dataEntry.from_dict(d) for d in data]
+        
+        if errors is not None:
+            error_entries = [errorEntry.from_dict(e) for e in errors]
+            # otherwise, leave as None
 
-        return cls(analog_values, digital_values, msg_type, error_entries, time=time)
+        return cls(dataEntries, msg_type, error_entries=error_entries, time=time)
         
 
     # private method
@@ -214,23 +229,14 @@ class DataPacketModel:
         return
 
     @property  # getter
-    def analog_values(self):
-        return self._analog_values
+    def data_entries(self):
+        return self._data_entries
 
-    @analog_values.setter
-    def analog_values(self, value_list: List[dataEntry]):
+    @data_entries.setter
+    def data_entries(self, entry_list: List[dataEntry]):
         # check for valid list element types
-        self._check_valid_dataEntry_type(value_list)
-        self._analog_values = value_list
-
-    @property  # getter
-    def digital_values(self):
-        return self._digital_values
-
-    @digital_values.setter
-    def digital_values(self, value_list: List[dataEntry]):
-        self._check_valid_dataEntry_type(value_list)
-        self._digital_values = value_list
+        self._check_valid_dataEntry_type(entry_list)
+        self._data_entries = entry_list
     
     @property  # getter
     def error_entries(self):
@@ -274,23 +280,17 @@ class DataPacketModel:
     def _pack_json(self, time: str) -> dict:
         json = {
             "time": str(time),
-            "data": [
-                {
-                    "analog_values": [av.as_dict() for av in self.analog_values]  # a list of dictionaries
-                },
-                {
-                    "digital_values": [dv.as_dict() for dv in self.digital_values]
-                },
-            ]
+            "data": [ev.as_dict() for ev in self.data_entries]
         }
+        # also append error entries if there are any
         if self.error_entries is not None and len(self.error_entries)>0:
             json["errors"] = [ee.as_dict() for ee in self.error_entries]
             
         return json
 
     def get_packet_as_string(self) -> str:
-        if self.analog_values is None and self.digital_values is None:
-            warnings.warn("Both analog_values and digital_values are None.  Did you forget to initialize them?")
+        if self.data_entries is None or len(self.data_entries)==0:
+            raise ValueError("There are no data entries.  Did you forget to initialize them?")
             
         if self.time is None:
             self.time = datetime.now()
@@ -303,7 +303,7 @@ class DataPacketModel:
     
         
     def __str__(self):
-        return f"packet: {self.get_packet_as_string()}\n msg_type: {self.msg_type}\n time: {self.time}"
+        return f"packet: {self.get_packet_as_string()}\n msg_type: {self.msg_type}\n time: {str(self.time)}"
         
         
         
