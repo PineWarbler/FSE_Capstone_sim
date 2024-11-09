@@ -75,28 +75,75 @@ class dataEntry:
         return str(self.as_dict())
         
 
+class errorEntry:
+    ''' a general-purpose object to report errors with electrical interfaces '''
+    def __init__(self, source: str, criticalityLevel: str, description: str, time: str = None):
+        self.source = source
+        self.criticalityLevel = criticalityLevel
+        self.description = description
+        self.time = time
+    
+    @classmethod
+    def from_dict(cls, in_dict: dict) -> 'errorEntry':
+        ''' alternative constructor; converts a dict into an errorEntry obj '''
+        
+        # see https://gist.github.com/stavshamir/0f5bc3e663b7bb33dd2d7822dfcc0a2b#file-book-py
+        return cls(in_dict["source"], in_dict["criticalityLevel"], in_dict["description"], 
+                           time=in_dict.get("time"))
+    @property
+    def time(self):
+        return self._time
+    
+    @time.setter
+    def time(self, o_time):
+        if o_time is None:
+            self._time=None
+            return
+        if not isinstance(o_time, (str, datetime)):
+            raise TypeError(f"Expected a string or datetime obj as `time`, but received an object of type {type(o_time)}")
+        self._time = str(o_time)
+    
+    def as_dict(self) -> dict:
+        ''' use this method when preparing a packet'''
+        if self.time is None:
+            self.time = str(datetime.now())
+        return {"source": self.source, "criticalityLevel": self.criticalityLevel, 
+                "description": self.description, "time": self.time}
+    
+    def __str__(self):
+        return str(self.as_dict())
+
 
 class DataPacketModel:
     '''
     Data model for signals. Can be used to generate outgoing signals packet strings or to 
     poll an active socket to parse out data values into an instance of this class
     
+    Elements:
+        analog values
+        digital values
+        error entries
+    
+    msg_type is a single character that denotes the type of packet being sent/received
 
     example usage:
-    1. Set member attributes `analog_values` and `digital_values` 
+    1. Set member attributes `analog_values`, `digital_values`, and (optionally) `error_entries`
     2. call `get_packet_as_string`
     '''
 
-    def __init__(self, analog_values: List[type(dataEntry)], digital_values: List[type(dataEntry)], 
-                 msg_type : str, time: str = None):
+    def __init__(self, 
+                 analog_values: List[type(dataEntry)], 
+                 digital_values: List[type(dataEntry)], 
+                 msg_type : str,
+                 error_entries: List[type(errorEntry)]=None,
+                 time: str = None):
         '''note: if `time` is unspecified, the packet timestamp will be inserted as the current time when the `get_packet_as_string` method is called'''
         
         # these are bi-directional.  If master sends a packet, all values will be outputted by the Pi
         # vice-versa: if Pi sends to master, they report input data
         self.analog_values = analog_values
         self.digital_values = digital_values
-        # the following parameters are used if object needs to parse data on an active socket
-        # self.active_socket = active_socket  # in the case that this class is used to receive from a socket
+        self.error_entries = error_entries
         self.msg_type = msg_type
         self.time = time
     
@@ -142,19 +189,28 @@ class DataPacketModel:
         digital_entries = data_list[1]
         analog_values = [dataEntry.from_dict(a) for a in analog_entries.get("analog_values")]
         digital_values = [dataEntry.from_dict(d) for d in digital_entries.get("digital_values")]
-        # return cls(in_dict["name"], in_dict["val"], in_dict["time"])
-        return cls(analog_values, digital_values, msg_type, time=time)
+        error_entries = [errorEntry.from_dict(e) for e in data.get("errors")]
+
+        return cls(analog_values, digital_values, msg_type, error_entries, time=time)
         
 
     # private method
     def _check_valid_dataEntry_type(self, dataEntryList: List[dataEntry]) -> None:
-        '''void function that throws a ValueError if any element in list is not of type `Int` or `Float`'''
+        '''throws a ValueError if any element in list is a dataEntry object'''
         # format should be like {"channel1" : VALUE, "time": time},
         if dataEntryList is None:
             return
-        for e in dataEntryList:
-            if not isinstance(e, dataEntry):
-                raise ValueError(f"Expected all list elements to be of type `dataEntry`, but encountered object of type {type(e)}")
+        for de in dataEntryList:
+            if not isinstance(de, dataEntry):
+                raise ValueError(f"Expected all list elements to be of type `dataEntry`, but encountered object of type {type(de)}")
+        return
+    
+    def _check_valid_errorEntry_type(self, errorEntryList: List[errorEntry]) -> None:
+        if errorEntryList is None:
+            return
+        for ee in errorEntryList:
+            if not isinstance(ee, errorEntry):
+                raise ValueError(f"Expected all list elements to be of type `errorEntry`, but encountered object of type {type(ee)}")
         return
 
     @property  # getter
@@ -175,6 +231,16 @@ class DataPacketModel:
     def digital_values(self, value_list: List[dataEntry]):
         self._check_valid_dataEntry_type(value_list)
         self._digital_values = value_list
+    
+    @property  # getter
+    def error_entries(self):
+        return self._error_entries
+
+    @error_entries.setter
+    def error_entries(self, value_list: List[errorEntry]):
+        # check for valid list element types
+        self._check_valid_errorEntry_type(value_list)
+        self._error_entries = value_list
 
     @property # getter
     def active_socket(self):
@@ -217,6 +283,9 @@ class DataPacketModel:
                 },
             ]
         }
+        if self.error_entries is not None and len(self.error_entries)>0:
+            json["errors"] = [ee.as_dict() for ee in self.error_entries]
+            
         return json
 
     def get_packet_as_string(self) -> str:
@@ -234,13 +303,14 @@ class DataPacketModel:
     
         
     def __str__(self):
-        return f"socket: {self.active_socket}\n packet: {self.get_packet_as_string()}\n msg_type: {self.msg_type}\n time: {self.time}"
+        return f"packet: {self.get_packet_as_string()}\n msg_type: {self.msg_type}\n time: {self.time}"
         
         
         
 if __name__ == "__main__":
     dv = [dataEntry("channeld1", 100), dataEntry("channeld2", 0.001)]
     av = [dataEntry("channela1", 109), dataEntry("channela2", 0.021)]
+    ee = [errorEntry("card1", "medium", "something went wrong...")]
     
-    sd = DataPacketModel(av, dv)
+    sd = DataPacketModel(av, dv, "d", ee)
     print(sd.get_packet_as_string())
