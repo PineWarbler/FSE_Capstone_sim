@@ -10,6 +10,7 @@ from typing import List, Union
 import warnings
 import socket
 import json
+import time
 
 class dataEntry:
     '''
@@ -18,7 +19,7 @@ class dataEntry:
     '''
     allowed_sig_types = ["ao", "ai", "do", "di"]
     
-    def __init__(self, sig_type: str, name: str, val: float, time: str=None):
+    def __init__(self, sig_type: str, name: str, val: float, time: Union[str, float]=None):
         # sig_type must be one of ["ao", "ai", "do", "di"]
         # name, val, time are parameters are to convert from discrete inputs to dataEntry 
         self.sig_type = sig_type
@@ -36,9 +37,10 @@ class dataEntry:
         return cls(in_dict["sig_type"], in_dict["name"], in_dict["val"], in_dict["time"])
     
     def as_dict(self):
+        time_to_send = self.time
         if self.time is None:
-            self.time = str(datetime.now())
-        return {"sig_type": self.sig_type, "name": self.name, "val": self.val, "time": self.time}
+            time_to_send = str(datetime.now())
+        return {"sig_type": self.sig_type, "name": self.name, "val": self.val, "time": time_to_send}
     
     @property
     def sig_type(self):
@@ -80,9 +82,9 @@ class dataEntry:
         if o_time is None:
             self._time=None
             return
-        if not isinstance(o_time, (str, datetime)):
-            raise TypeError(f"Expected a string or datetime obj as `time`, but received an object of type {type(o_time)}")
-        self._time = str(o_time)
+        if not isinstance(o_time, (float, str)):
+            raise TypeError(f"Expected a float (POSIX) or datetime string as `time`, but received an object of type {type(o_time)}")
+        self._time = o_time
     
     
     def __str__(self):
@@ -279,7 +281,7 @@ class DataPacketModel:
     
     def _pack_json(self, time: str) -> dict:
         json = {
-            "time": str(time),
+            "time": time,
             "data": [ev.as_dict() for ev in self.data_entries]
         }
         # also append error entries if there are any
@@ -308,9 +310,9 @@ class DataPacketModel:
         
         
 if __name__ == "__main__":
-    dv = [dataEntry("channeld1", 100), dataEntry("channeld2", 0.001)]
-    av = [dataEntry("channela1", 109), dataEntry("channela2", 0.021)]
+    de = [dataEntry("ao", "channeld1", 100, time=str(datetime.now())), dataEntry("ai", "channeld2", 0.001, time=time.time())]
+    # av = [dataEntry("channela1", 109), dataEntry("channela2", 0.021)]
     ee = [errorEntry("card1", "medium", "something went wrong...")]
     
-    sd = DataPacketModel(av, dv, "d", ee)
+    sd = DataPacketModel(de, "d", ee, time=time.time())
     print(sd.get_packet_as_string())
