@@ -7,6 +7,8 @@ Created on Mon Oct 21 16:06:35 2024
 # import binascii
 import spidev
 import gpiozero
+import time
+import math
 
 import sys
 sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
@@ -134,11 +136,11 @@ class T_CLICK_2:
         returning a 24-bit response which is the previous content held in the shift register'''
         # modeled after c420mat2_write_data
         full_command = (reg << T_CLICK_2.BIT_RES) + data_in # first 8 bits is REG, last 16 are actual data
-        print(f"full command as int is {full_command}")
+        # print(f"full command as int is {full_command}")
         # split into three 8-bit words for Pi's spi limitation
         asBytes = int(full_command).to_bytes(self.BYTES_PER_TRANSACTION, byteorder="big") # produces a bytearray of length 3
         write_list = [int(b) for b in asBytes]
-        print(f"write_list is {write_list}")
+        # print(f"write_list is {write_list}")
         self.cs_master.select(self.output_channel_name)
         # self.cs_master.off() # initiate transaction by pulling cs low
         # self.cs_master.select(self.output_channel_name) # prepare for write   
@@ -154,7 +156,7 @@ class T_CLICK_2:
         # modeled after c420mat2_set_output_current
         if (mA_val < self.CURRENT_OUTPUT_RANGE_MIN) or (mA_val > self.CURRENT_OUTPUT_RANGE_MAX):
             raise ValueError(f"The requested current value of {mA_val} mA is outside the valid range of the transmitter.")
-            
+        # print(f"{mA_val} mA converted to DAC code is {self._convert_mA_to_DAC_code(mA_val)}")
         self.write_data(self.REG_DACCODE, self._convert_mA_to_DAC_code(mA_val))
         
     
@@ -169,13 +171,12 @@ class T_CLICK_2:
         # The first transaction shifts in the register read command; an 8-bits of command byte followed by 16-bits of dummy data. The register read
         # command transfers the contents of the internal register into the FIFO. The second transaction shifts out the FIFO
         # contents; an 8-bit command byte (which is a copy of previous transaction) followed by the register data.
-        r = self.write_data(self.REG_STATUS| 0x80, self.DUMMY) # 8 bit command + 16 bits of dummy data
-        print(f"first response is {r}")
+        r = self.write_data(self.REG_STATUS| 0x80, self.DUMMY) # 8 bit command + 16 bits of dummy data ORed with read prefix (see datasheet page 11)
+        # print(f"first response is {r}")
         
         register_contents = self.write_data(self.REG_STATUS | 0x80, self.DUMMY) # repeated to flush, returns a list
-        print(f"raw register contents: {register_contents}") # this returns a list of three 8-bit numbers
-        # TODO: What is the 8-bit command to read register? C drivers claim it's 0x09, but datasheet
-        # says its (0x09 | 0x080). see datasheet page 11
+        # print(f"raw register contents: {register_contents}") # this returns a list of three 8-bit numbers
+
         self.dac997_status = DAC997_status.from_response(register_contents)
         return self.dac997_status
     
@@ -200,7 +201,16 @@ class T_CLICK_2:
         data_word += int(code_spi_timeout_ms) << 3
         data_word += int(mask_spi_tout) << 0
         
+        # print(f"set_error_config_mode command is {data_word}")
         self.write_data(self.REG_ERR_CONFIG, data_word)
+    
+    def set_err_low_current_level(self, mAVal: float) -> None:
+        ''' define the output current amount to assert when an error occurs.
+            default on chip startup is 0x24 -> 3.37 mA
+            must be between 0x00 (0 mA) and 0x80 (12 mA)'''
+        code = math.floor(mAVal * 10.666) # linear interpolation
+        padded_code = (code << 8) + 0x00 # shift to the right to make word 16 bits (see datasheet)
+        self.write_data(self.REG_ERR_LOW, padded_code)
     
     def reset(self) -> None:
         ''' return all writable registers to their defaults '''
@@ -208,7 +218,7 @@ class T_CLICK_2:
         self.write_NOP()
         
     def close(self) -> None:
-        pass
+        self.reset()
        
         
 
@@ -225,14 +235,37 @@ if __name__ == "__main__":
     spi.max_speed_hz = 5000 # start slow at first
     spi.mode = 0
     spi.bits_per_word = 8 # would prefer 16, but this is the maximum supported by the Pi's spi driver
-    # disable the default CS pin
+    
+    # can't use the built-in cs pin because it would interrupt the 16-bit word into three individual words
+    # the DAC would reject the frame because it's not a contiguous 16 bits
     spi.no_cs
     cs_pins = [gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))]
     cs = Master_CS("one-to-one", spi, cs_pins, ["ch1"])
     
     t2 = T_CLICK_2('ch1', spi, cs)
+    
+    print(t2.read_status_register())
+    
+    
+    
+    # disable SPI timeout error reporting (i.e. maintain output current indefinitely)
+    # otherwise, the chip will assert output current level set in ERR_LOW reg, which by default is 0x24 -> 3.37 mA
+    t2.set_error_config_mode(50, True, False, False,
+                              True, 100, True)
+               
+    # t2.set_err_low_current_level(1.0) # the default 3.37 mA seems a bit much...
+    
+    t2.set_output_current(12) # because we've disabled SPI timeout error, this current level will hold indefinitly until loop error
+
+    
+    time.sleep(5) # only sleep to delay the call to close(), which will reset spi timeout error reporting (end indefinite current hold)
+    
+    # print("after set current command: ")
     # print(t2.read_status_register())
-    t2.set_output_current(12)
+    
+    # for _ in range(0, 30):
+        # print(t2.read_status_register())
+        # time.sleep(1)
     
     # cleanup
     t2.close()
