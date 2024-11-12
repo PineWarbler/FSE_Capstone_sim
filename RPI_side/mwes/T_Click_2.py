@@ -252,7 +252,7 @@ if __name__ == "__main__":
     # otherwise, the chip will assert output current level set in ERR_LOW reg, which by default is 0x24 -> 3.37 mA
     t2.set_error_config_mode(50, True, False, False,
                               True, 100, True)
-    
+               
     # t2.set_err_low_current_level(1.0) # the default 3.37 mA seems a bit much...
     
     t2.set_output_current(12) # because we've disabled SPI timeout error, this current level will hold indefinitly until loop error
