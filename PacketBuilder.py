@@ -204,9 +204,10 @@ class DataPacketModel:
         # call parsing functions to load entry objects from dictionaries
         dataEntries = [dataEntry.from_dict(d) for d in data]
         
-        if errors is not None:
+        if errors is None:
+            error_entries = None
+        else:
             error_entries = [errorEntry.from_dict(e) for e in errors]
-            # otherwise, leave as None
 
         return cls(dataEntries, msg_type, error_entries=error_entries, time=time)
         
@@ -310,7 +311,7 @@ class DataPacketModel:
         
         
 if __name__ == "__main__":
-    de = [dataEntry("ao", "channeld1", 100, time=str(datetime.now())), dataEntry("ai", "channeld2", 0.001, time=time.time())]
+    de = [dataEntry("ao", "channeld1", 100, time=datetime.now()), dataEntry("ai", "channeld2", 0.001, time=time.time())]
     # av = [dataEntry("channela1", 109), dataEntry("channela2", 0.021)]
     ee = [errorEntry("card1", "medium", "something went wrong...")]
     

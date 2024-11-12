@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Union
 import time
 from PacketBuilder import dataEntry
+import copy
 
 class CommandQueue:
     ''' a priority queue that stores dataEntry objects ranked by date due (soonest to furthest)
@@ -53,6 +54,21 @@ class CommandQueue:
             l.append(currEl) # keep popping until we reach elements scheduled in the future
             currEl = self.pop_due()
         return l
+    
+    def pop_all(self) -> list[dataEntry]:
+        ''' 
+        pops all items in the heap, regardless of their timestamp priority, sorted newest to oldest.
+        Designed to be used when this class is used to store data entries that have been read from sensors
+        and are ready to be sent to the master.  Send all elements, and let the master decide which are relevant.
+        '''
+        if len(self.heap) == 0:
+            return []
+        beforeRemoveAll = copy.deepcopy(self.heap)
+        
+        self.heap.clear() # remove all items from heap
+        
+        reversedHeap = beforeRemoveAll[::-1]
+        return [h[1] for h in reversedHeap] # return only the object, not the timestamp
 
             
     def __str__(self) -> str:
