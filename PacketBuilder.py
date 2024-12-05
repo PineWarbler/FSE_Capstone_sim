@@ -140,12 +140,16 @@ class DataPacketModel:
         error entries: a list of erroEntry objects
     
     msg_type is a single character that denotes the type of packet being sent/received
+    `d` means that this packet contains data meant for the recipient
+    `w` means that this packet is simply a write request (i.e. contains no data)
     
     Once member attributes `dataEntries` are set, call `get_packet_as_string`, which will pack into a
     string ready to be sent over a socket
     
     OR, can use DataPacketModel.from_socket(sock) to create an instance from data waiting on sock buffer
     '''
+    
+    allowed_msg_types = ['d', 'w']
 
     def __init__(self, 
                  dataEntries: List[type(dataEntry)], 
@@ -270,13 +274,10 @@ class DataPacketModel:
     
     @msg_type.setter
     def msg_type(self, o_msg_type):
-        if o_msg_type is None:
-            self._msg_type = None
-            return
-        castAttempt = str(o_msg_type)
+        castAttempt = str(o_msg_type).lower()
            
-        if len(castAttempt) != 1:
-            raise ValueError(f"Expected length of `msg_type` to be 1, but got length {len(castAttempt)} ")
+        if castAttempt not in self.allowed_msg_types:
+            raise ValueError(f"Expected `msg_type` to be one of {self.allowed_msg_types}, but got {o_msg_type} instead")
         self._msg_type = o_msg_type
     
     
@@ -292,7 +293,8 @@ class DataPacketModel:
         return json
 
     def get_packet_as_string(self) -> str:
-        if self.data_entries is None or len(self.data_entries)==0:
+        if self.msg_type=="d" and (self.data_entries is None or len(self.data_entries)==0):
+            # then we expect this packet to contain data, but it doesn't
             raise ValueError("There are no data entries.  Did you forget to initialize them?")
             
         if self.time is None:
@@ -311,7 +313,7 @@ class DataPacketModel:
         
         
 if __name__ == "__main__":
-    de = [dataEntry("ao", "channeld1", 100, time=datetime.now()), dataEntry("ai", "channeld2", 0.001, time=time.time())]
+    de = [dataEntry("ao", "channeld1", 100, time=time.time()), dataEntry("ai", "channeld2", 0.001, time=time.time())]
     # av = [dataEntry("channela1", 109), dataEntry("channela2", 0.021)]
     ee = [errorEntry("card1", "medium", "something went wrong...")]
     

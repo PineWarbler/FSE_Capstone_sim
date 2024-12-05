@@ -12,6 +12,10 @@ import time
 from PacketBuilder import dataEntry
 import copy
 
+# this class is designed to run on the master laptop in a separate thread that sends out interpolated
+# packets at the right times
+# the timestamp of any entry can be in the future, and this queue will send out those elements
+# at the right times
 class CommandQueue:
     ''' a priority queue that stores dataEntry objects ranked by date due (soonest to furthest)
     '''
@@ -19,9 +23,9 @@ class CommandQueue:
         self.heap = [] # yes, I know it's a list...
         
     def put(self, entry: dataEntry):
-        ''' place a dataEntry object onto the heap. It's timestamp determines
-        its insertion point in the heap.  A large timestamp will be placed after a 
-        smaller timestamp
+        ''' place a dataEntry object onto the heap. Its timestamp determines
+        its insertion point in the heap.  A large timestamp (future) will be placed after a 
+        smaller timestamp (past)
         This function assumes that the `time` field in the dataEntry is a float (POSIX) or a datetime object
         '''
         time = entry.time

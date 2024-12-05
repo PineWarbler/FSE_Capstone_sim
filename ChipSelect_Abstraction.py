@@ -85,7 +85,10 @@ class Master_CS:
         # for n in gpio_pins:    
         #     GPIO.setup(n, GPIO.OUT)
         # GPIO.setwarnings(False)
-            
+
+    def addChannel(self, chName, GPIO_Obj : gpiozero.output_devices.DigitalOutputDevice) -> None:
+        self.output_channel_names.append(chName)
+        self.gpio_pins.append(GPIO_Obj)   
     
     @property # getter
     def kind(self):
