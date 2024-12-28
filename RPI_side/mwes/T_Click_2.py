@@ -13,8 +13,6 @@ import math
 import sys
 sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
 
-from ChipSelect_Abstraction import Master_CS
-
 # these lines to free any previous lgpio resources. see https://forums.raspberrypi.com/viewtopic.php?t=362014
 import os
 os.environ['GPIO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY','mock')
@@ -77,12 +75,6 @@ class DAC997_status:
         bs += f"curr_loop_status : {self.curr_loop_sts}"
         return bs
 
-# spi_master(spi, CS_obj)
-# dacobj.setoutputcurr(amount, spi) * assumes CS has already been treated (not ideal because might need to toggle CS pin mid-command)
-# dacobj.setoutputcurr(amount, spi_master, cs_master)
-# OR
-# spi_master.
-
 class T_CLICK_2:
     # R_IN = 20E3 # ohms
     # V_REF = 4.096 # Volts
@@ -118,20 +110,16 @@ class T_CLICK_2:
     CURRENT_OUTPUT_RANGE_MIN = 3.9
     CURRENT_OUTPUT_RANGE_MAX = 20.0
     
-    def __init__(self, output_channel_name, spi, cs: Master_CS):
-        # for now, cs is just a gpiozero pin object
-        ''' note: cs : Master_CS , must support select(outputChannelName) and deselect_all() '''
-        self.spi_master = spi
-        # check for essential configuration: bits per word = 16
-        # if self.spi_master.bits_per_word != T_CLICK_2.BITS_PER_TRANSACTION:
-            # print(f"overriding spi bits per word from {self.spi_master.bits_per_word} to {T_CLICK_2.BITS_PER_TRANSACTION}.")
-            # self.spi_master.bits_per_word = T_CLICK_2.BITS_PER_TRANSACTION
-            
-        self.cs_master = cs
-        self.output_channel_name = output_channel_name # unique for each instance; used in calls to cs_master.select
+    def __init__(self, gpio_cs_pin, spi : spidev.SpiDev):
+        '''
+        gpio_cs_pin : str, the GPIO object that will be used as the chip select pin. Uses the gpiozero library
+        spi : spidev.SpiDev, the SPI object that will be used to communicate with the `997
+        '''
+        self.spi_master = spi           
+        self.gpio_cs_pin = gpio_cs_pin # use the gpio_manager class to fetch the GPIO object
         self.dac997_status = DAC997_status(None, None, None, None, None, None) # initialize to empty data model
     
-    def write_data(self, reg: int, data_in: int): # TODO: add return type hint for type of `resp`
+    def _write_data(self, reg: int, data_in: int): # TODO: add return type hint for type of `resp`
         ''' joins data to reg addr into a 24-bit (3-byte) word, then writes over SPI, 
         returning a 24-bit response which is the previous content held in the shift register'''
         # modeled after c420mat2_write_data
@@ -141,23 +129,20 @@ class T_CLICK_2:
         asBytes = int(full_command).to_bytes(self.BYTES_PER_TRANSACTION, byteorder="big") # produces a bytearray of length 3
         write_list = [int(b) for b in asBytes]
         # print(f"write_list is {write_list}")
-        self.cs_master.select(self.output_channel_name)
-        # self.cs_master.off() # initiate transaction by pulling cs low
-        # self.cs_master.select(self.output_channel_name) # prepare for write   
-        resp = self.spi_master.xfer(write_list) # also catches the shift register contents that are being shifted out
-        # self.cs_master.on()
-        self.cs_master.deselect_all()
-        return resp
-        # self.dac997_status = DAC997_status.from_8bit_response(resp) # parse response and store in member variable
-        
+        self.gpio_cs_pin.value = 0 # initiate transaction by pulling cs low
     
-    def set_output_current(self, mA_val: float) -> None:
+        resp = self.spi_master.xfer(write_list) # also catches the shift register contents that are being shifted out
+
+        self.gpio_cs_pin.value = 1 # end transaction by pulling cs high
+        return resp        
+    
+    def write_mA(self, mA_val: float) -> None:
         ''' produces as 24-bit word REG+DACCODE, and writes it to SPI '''
         # modeled after c420mat2_set_output_current
         if (mA_val < self.CURRENT_OUTPUT_RANGE_MIN) or (mA_val > self.CURRENT_OUTPUT_RANGE_MAX):
             raise ValueError(f"The requested current value of {mA_val} mA is outside the valid range of the transmitter.")
         # print(f"{mA_val} mA converted to DAC code is {self._convert_mA_to_DAC_code(mA_val)}")
-        self.write_data(self.REG_DACCODE, self._convert_mA_to_DAC_code(mA_val))
+        self._write_data(self.REG_DACCODE, self._convert_mA_to_DAC_code(mA_val))
         
     
     def _convert_mA_to_DAC_code(self, mA_value: float) -> int:
@@ -171,10 +156,10 @@ class T_CLICK_2:
         # The first transaction shifts in the register read command; an 8-bits of command byte followed by 16-bits of dummy data. The register read
         # command transfers the contents of the internal register into the FIFO. The second transaction shifts out the FIFO
         # contents; an 8-bit command byte (which is a copy of previous transaction) followed by the register data.
-        r = self.write_data(self.REG_STATUS| 0x80, self.DUMMY) # 8 bit command + 16 bits of dummy data ORed with read prefix (see datasheet page 11)
+        r = self._write_data(self.REG_STATUS| 0x80, self.DUMMY) # 8 bit command + 16 bits of dummy data ORed with read prefix (see datasheet page 11)
         # print(f"first response is {r}")
         
-        register_contents = self.write_data(self.REG_STATUS | 0x80, self.DUMMY) # repeated to flush, returns a list
+        register_contents = self._write_data(self.REG_STATUS | 0x80, self.DUMMY) # repeated to flush, returns a list
         # print(f"raw register contents: {register_contents}") # this returns a list of three 8-bit numbers
 
         self.dac997_status = DAC997_status.from_response(register_contents)
@@ -182,7 +167,7 @@ class T_CLICK_2:
     
     def write_NOP(self) -> None:
         '''datasheet: indicates that the SPI connection is functioning and is used to avoid SPI_INACTIVE errors.'''
-        self.write_data(self.REG_NOP, self.DUMMY)
+        self._write_data(self.REG_NOP, self.DUMMY)
         
     def set_error_config_mode(self, retry_loop_time_ms: float, enable_retry_loop: bool, maskLooperr: bool, dis_loop_err_errb: bool,
                               mask_spi_err: bool, spi_timeout_ms: float, mask_spi_tout: bool):
@@ -202,7 +187,7 @@ class T_CLICK_2:
         data_word += int(mask_spi_tout) << 0
         
         # print(f"set_error_config_mode command is {data_word}")
-        self.write_data(self.REG_ERR_CONFIG, data_word)
+        self._write_data(self.REG_ERR_CONFIG, data_word)
     
     def set_err_low_current_level(self, mAVal: float) -> None:
         ''' define the output current amount to assert when an error occurs.
@@ -210,11 +195,11 @@ class T_CLICK_2:
             must be between 0x00 (0 mA) and 0x80 (12 mA)'''
         code = math.floor(mAVal * 10.666) # linear interpolation
         padded_code = (code << 8) + 0x00 # shift to the right to make word 16 bits (see datasheet)
-        self.write_data(self.REG_ERR_LOW, padded_code)
+        self._write_data(self.REG_ERR_LOW, padded_code)
     
     def reset(self) -> None:
         ''' return all writable registers to their defaults '''
-        self.write_data(self.REG_RESET, 0xC33C) # see datasheet pg 15
+        self._write_data(self.REG_RESET, 0xC33C) # see datasheet pg 15
         self.write_NOP()
         
     def close(self) -> None:
@@ -239,10 +224,10 @@ if __name__ == "__main__":
     # can't use the built-in cs pin because it would interrupt the 16-bit word into three individual words
     # the DAC would reject the frame because it's not a contiguous 16 bits
     spi.no_cs
-    cs_pins = [gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))]
-    cs = Master_CS("one-to-one", spi, cs_pins, ["ch1"])
-    
-    t2 = T_CLICK_2('ch1', spi, cs)
+
+    cs = gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))
+   
+    t2 = T_CLICK_2(gpio_cs_pin = cs, spi = spi)
     
     print(t2.read_status_register())
     
@@ -270,5 +255,4 @@ if __name__ == "__main__":
     # cleanup
     t2.close()
     spi.close()
-    for p in cs_pins:
-        p.close()
+    cs.close()

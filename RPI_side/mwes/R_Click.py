@@ -8,22 +8,20 @@ Created on Wed Nov 13 13:26:36 2024
 import spidev
 import time
 import gpiozero # because RPi.GPIO is unsupported on RPi5
+from typing import Union
 
 import sys
 sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
 
-from ChipSelect_Abstraction import Master_CS
-
-class R_Click:
+class R_CLICK:
     
     V_REF = 2.048 # voltage reference for the ADC chip
     R_SHUNT = 4.99 # ohms.  shunt resistor through which the signal current flows.
     BIT_RES = 12 # of ADC
     
-    def __init__(self, output_channel_name, spi, cs: Master_CS):
-        self.output_channel_name = output_channel_name
+    def __init__(self, gpio_cs_pin : Union[gpiozero.DigitalInputDevice, gpiozero.DigitalOutputDevice], spi : spidev.SpiDev):
         self.spi_master = spi
-        self.cs_master = cs
+        self.gpio_cs_pin = gpio_cs_pin
         
     def _twoBytes_to_counts(byteList: list[int]) -> int:
         ''' combines the two 8-bit words into a single 12-bit word that contains actual ADC count'''
@@ -41,9 +39,9 @@ class R_Click:
         return self._counts_to_mA(self._twoBytes_to_counts(byteList))
     
     def read_mA(self) -> float:
-        self.cs_master.select(self.output_channel_name)
+        self.gpio_cs_pin.value = 0 # initiate transaction by pulling cs pin low
         rawResponse = self.spi.readbytes(2)
-        self.cs_master.deselect_all()
+        self.gpio_cs_pin.value = 1 # end transaction by pulling cs pin high
         
         return self._twoBytes_to_mA(rawResponse)
     
@@ -74,10 +72,9 @@ if __name__ == "__main__":
     spi.no_cs
     spi.threewire
     
-    cs_pins = [gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))]
-    cs = Master_CS("one-to-one", spi, cs_pins, ["ch1"])
+    cs = gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))
     
-    r = R_Click("ch1", spi, cs)
+    r = R_CLICK(cs = cs, spi = spi)
     
     while True:
         try:
@@ -93,5 +90,4 @@ if __name__ == "__main__":
     # cleanup
     r.close()
     spi.close()
-    for p in cs_pins:
-        p.close()
+    cs.close()

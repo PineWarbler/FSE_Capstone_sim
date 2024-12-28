@@ -15,15 +15,17 @@ import time
 class dataEntry:
     '''
     dataEntry represents a single timestamped datum used for both analog and digital signals
-    e.g. "sig_type": "ai", "name": "channel1", "val": 3.14, "time": "2024-10-19 19:21:08.198100"
+    e.g. "chType": "ai", gpio_str : "GPIO26", "val": 3.14, "time": 1735346511.9356625
+    n.b. pass an integer as "val" if you want to send a binary digital signal (for digital inputs/outputs)
     '''
-    allowed_sig_types = ["ao", "ai", "do", "di"]
+    allowed_chTypes = ["ao", "ai", "do", "di"]
     
-    def __init__(self, sig_type: str, name: str, val: float, time: Union[str, float]=None):
-        # sig_type must be one of ["ao", "ai", "do", "di"]
-        # name, val, time are parameters are to convert from discrete inputs to dataEntry 
-        self.sig_type = sig_type
-        self.name = name
+    def __init__(self, chType: str, gpio_str: str, val: Union[float, int], time: float = None):
+        # chType must be one of ["ao", "ai", "do", "di"]
+        # gpio_str is like "GPIO26" or one of the formats specified by https://gpiozero.readthedocs.io/en/stable/recipes.html#pin-numbering
+        # time : a Unix-style timestamp; when initiated by the master, this timestamp determines this command's position in the outgoing socket queue
+        self.chType = chType
+        self.gpio_str = gpio_str
         self.val = val
         self.time = time
     
@@ -34,33 +36,33 @@ class dataEntry:
         '''
         
         # see https://gist.github.com/stavshamir/0f5bc3e663b7bb33dd2d7822dfcc0a2b#file-book-py
-        return cls(in_dict["sig_type"], in_dict["name"], in_dict["val"], in_dict["time"])
+        return cls(in_dict["chType"], in_dict["name"], in_dict["val"], in_dict["time"])
     
     def as_dict(self):
         time_to_send = self.time
         if self.time is None:
             time_to_send = str(datetime.now())
-        return {"sig_type": self.sig_type, "name": self.name, "val": self.val, "time": time_to_send}
+        return {"chType": self.chType, "name": self.name, "val": self.val, "time": time_to_send}
     
     @property
-    def sig_type(self):
-        return self._sig_type
+    def chType(self):
+        return self._chType
     
-    @sig_type.setter
-    def sig_type(self, o_sig_type):
-        if not isinstance(o_sig_type, str) or o_sig_type not in self.allowed_sig_types:
-            raise TypeError(f"Expected one of {self.allowed_sig_types} as `sig_type`, but received {str(o_sig_type)}")
-        self._sig_type = o_sig_type
+    @chType.setter
+    def chType(self, o_chType):
+        if not isinstance(o_chType, str) or o_chType not in self.allowed_chTypes:
+            raise TypeError(f"Expected one of {self.allowed_chTypes} as `chType`, but received {str(o_chType)}")
+        self._chType = o_chType
         
     @property
-    def name(self):
-        return self._name
+    def gpio_str(self):
+        return self._gpio_str
     
-    @name.setter
-    def name(self, o_name):
-        if not isinstance(o_name, str):
-            raise TypeError(f"Expected a string as `name`, but received an object of type {type(o_name)}")
-        self._name = o_name
+    @gpio_str.setter
+    def gpio_str(self, o_gpio_str):
+        if not isinstance(o_gpio_str, str):
+            raise TypeError(f"Expected a string as `gpio_str`, but received an object of type {type(o_gpio_str)}")
+        self._gpio_str = o_gpio_str
     
     @property
     def val(self):
@@ -82,8 +84,8 @@ class dataEntry:
         if o_time is None:
             self._time=None
             return
-        if not isinstance(o_time, (float, str)):
-            raise TypeError(f"Expected a float (POSIX) or datetime string as `time`, but received an object of type {type(o_time)}")
+        if not isinstance(o_time, float):
+            raise TypeError(f"Expected a float (UNIX) timestamp as `time`, but received an object of type {type(o_time)}")
         self._time = o_time
     
     
@@ -93,7 +95,7 @@ class dataEntry:
 
 class errorEntry:
     ''' a general-purpose object to report errors with electrical interfaces '''
-    def __init__(self, source: str, criticalityLevel: str, description: str, time: str = None):
+    def __init__(self, source: str, criticalityLevel: str, description: str, time: float = None):
         self.source = source
         self.criticalityLevel = criticalityLevel
         self.description = description
@@ -115,8 +117,8 @@ class errorEntry:
         if o_time is None:
             self._time=None
             return
-        if not isinstance(o_time, (str, datetime)):
-            raise TypeError(f"Expected a string or datetime obj as `time`, but received an object of type {type(o_time)}")
+        if not isinstance(o_time, float):
+            raise TypeError(f"Expected a float (UNIX timestamp) as `time`, but received an object of type {type(o_time)}")
         self._time = str(o_time)
     
     def as_dict(self) -> dict:
@@ -155,7 +157,7 @@ class DataPacketModel:
                  dataEntries: List[type(dataEntry)], 
                  msg_type : str,
                  error_entries: List[type(errorEntry)]=None,
-                 time: str = None):
+                 time: float = None):
         '''note: if `time` is unspecified, the packet timestamp will be inserted as the current time when the `get_packet_as_string` method is called'''
         
         # these are bi-directional.  If master sends a packet, all values will be outputted by the Pi
@@ -313,9 +315,9 @@ class DataPacketModel:
         
         
 if __name__ == "__main__":
-    de = [dataEntry("ao", "channeld1", 100, time=time.time()), dataEntry("ai", "channeld2", 0.001, time=time.time())]
-    # av = [dataEntry("channela1", 109), dataEntry("channela2", 0.021)]
-    ee = [errorEntry("card1", "medium", "something went wrong...")]
-    
-    sd = DataPacketModel(de, "d", ee, time=time.time())
+    de = [dataEntry(chType = "ao", gpio_str="GPIO26", val=3.14, time=time.time())]
+
+    ee = [errorEntry(source="GPIO26", criticalityLevel="medium", description="something went wrong...", time=time.time())]
+    sd = DataPacketModel(dataEntries=de, msg_type="d", error_entries=ee, time=time.time())    
+
     print(sd.get_packet_as_string())
