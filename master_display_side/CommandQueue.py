@@ -62,8 +62,6 @@ class CommandQueue:
     def pop_all(self) -> list[dataEntry]:
         ''' 
         pops all items in the heap, regardless of their timestamp priority, sorted newest to oldest.
-        Designed to be used when this class is used to store data entries that have been read from sensors
-        and are ready to be sent to the master.  Send all elements, and let the master decide which are relevant.
         '''
         if len(self.heap) == 0:
             return []
@@ -82,9 +80,9 @@ class CommandQueue:
         return len(self.heap)
         
 if __name__ == "__main__":
-    d1 = dataEntry("ao", "ch1", 0.901, time=time.time()+20)
-    d2 = dataEntry("do", "ch2", 0.501, time=time.time()+200)
-    d3 = dataEntry("ai", "ch3", 0.301, time=time.time()-10)
+    d1 = dataEntry(chType = "ao", gpio_str = "GPIO26", val = 18.50, time = time.time()+20)
+    d2 = dataEntry(chType = "ai", gpio_str = "GPIO23", val = 0.00, time = time.time()+200)
+    d3 = dataEntry(chType = "di", gpio_str = "GPIO24", val = int(1), time = time.time()-10)
     
     q = CommandQueue()
     q.put_all([d1, d2, d3])
