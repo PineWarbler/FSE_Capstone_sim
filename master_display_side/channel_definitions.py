@@ -23,7 +23,7 @@ class Channel_Entry:
     _slot2gpio = {
     11: "GPIO26",
     12: "GPIO21",
-    13: "GPIO20"
+    "r1": "GPIO19" # relay slot 1
     }
 
     def __init__(self, name : str, boardSlotPosition : int, sig_type : str, units : str | None,
@@ -37,10 +37,52 @@ class Channel_Entry:
 
         self.gpio = self._slot2gpio.get(boardSlotPosition)
     
+    def mA_to_EngineeringUnits(self, mA_val):
+        if self.sig_type[0].lower() == "a":
+            return ((mA_val-4.0) / (20.0 - 4.0)) * (self.realUnitsHighAmount - self.realUnitsLowAmount) + self.realUnitsLowAmount
+        else:
+            return None
+    
+    def EngineeringUnits_to_mA(self, engUnits):
+        if self.sig_type[0].lower() == "a":
+            return 4.0 + ((engUnits - self.realUnitsLowAmount) / (self.realUnitsHighAmount - self.realUnitsLowAmount)) * (20.0 - 4.0)
+        else:
+            return None
+    
+    def EngUnits_str(self, mA_val):
+        return f"{self.mA_to_EngineeringUnits(mA_val)} {self.units}"
+    
     def __str__(self):
         return f"Channel_Entry object: {self.name} at board slot position {self.boardSlotPosition} with GPIO {self.gpio}"
 
 channels = []
-channels.append(Channel_Entry(name = "DPT", boardSlotPosition = 11, sig_type="ao", units="PSI", realUnitsLowAmount=60.0, realUnitsHighAmount=80.0))
-channels.append(Channel_Entry(name="IVT", boardSlotPosition=12, sig_type="ai", units="mA", 
-                          realUnitsLowAmount=0.0, realUnitsHighAmount=20.0))
+channels.append(Channel_Entry(name = "Motor Status", boardSlotPosition = "r1", sig_type="do", units=None, realUnitsLowAmount=None, realUnitsHighAmount=None))
+channels.append(Channel_Entry(name="UVT", boardSlotPosition=13, sig_type="ai", units="percent", 
+                          realUnitsLowAmount=0, realUnitsHighAmount=100)) # note that the analog inputs are measured in percentage of open/close
+
+channels.append(Channel_Entry(name="SPT", boardSlotPosition=12, sig_type="ao", units="PSI", 
+                          realUnitsLowAmount=97.0, realUnitsHighAmount=200.0))
+# other analog outputs
+channels.append(Channel_Entry(name="DPT", boardSlotPosition=None, sig_type="ao", units="PSI", 
+                          realUnitsLowAmount=100.0, realUnitsHighAmount=200.0))
+channels.append(Channel_Entry(name="MAT", boardSlotPosition=None, sig_type="ao", units="Amps", 
+                          realUnitsLowAmount=145, realUnitsHighAmount=300.0))
+
+# other analog inputs
+channels.append(Channel_Entry(name="IVT", boardSlotPosition=None, sig_type="ai", units="percent", 
+                          realUnitsLowAmount=0.0, realUnitsHighAmount=100.0))
+
+# digital inputs
+channels.append(Channel_Entry(name="AOP", boardSlotPosition=12, sig_type="di", units="PSI", 
+                          realUnitsLowAmount=97.0, realUnitsHighAmount=200.0))
+
+print(channels[1].mA_to_EngineeringUnits(4.0))
+print(channels[1].mA_to_EngineeringUnits(12.0))
+print(channels[1].mA_to_EngineeringUnits(20.0))
+
+print(channels[1].EngineeringUnits_to_mA(0))
+print(channels[1].EngineeringUnits_to_mA(50))
+print(channels[1].EngineeringUnits_to_mA(100))
+
+print(channels[2].EngineeringUnits_to_mA(97))
+print(channels[2].EngineeringUnits_to_mA(199))

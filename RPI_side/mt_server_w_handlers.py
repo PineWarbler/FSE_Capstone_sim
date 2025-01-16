@@ -15,7 +15,7 @@ from threading import Thread, Lock
 import time
 from datetime import datetime
 import spidev
-
+import os
 
 import sys
 sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
@@ -144,14 +144,19 @@ def commandQueueManager(commandQueue, outQueue):
 # we have this as a loop so that if child connections die, the master display can always 
 # re-initiate a connection
 
-host = 'localhost'
+# host = 'localhost'
+host = "192.168.80.1"
 port = 5000
+
+os.system(f"sudo ip addr add {host}/24 dev eth0")
 
 s = socket.socket()
 s.settimeout(5) # Set a timeout of n seconds for the accept() call
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # solution for "[Error 89] Address already in use". Use before bind()
 s.bind((host, port))
 s.listen(1)
+
+print(f"socket listening on {socket.gethostbyname(socket.gethostname())}")
 
 all_threads = []
 

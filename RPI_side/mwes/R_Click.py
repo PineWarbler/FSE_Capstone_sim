@@ -9,6 +9,7 @@ import spidev
 import time
 import gpiozero # because RPi.GPIO is unsupported on RPi5
 from typing import Union
+from statistics import stdev
 
 import sys
 sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
@@ -20,10 +21,10 @@ class R_CLICK:
     BIT_RES = 12 # of ADC
     
     def __init__(self, gpio_cs_pin : Union[gpiozero.DigitalInputDevice, gpiozero.DigitalOutputDevice], spi : spidev.SpiDev):
-        self.spi_master = spi
+        self.spi = spi
         self.gpio_cs_pin = gpio_cs_pin
         
-    def _twoBytes_to_counts(byteList: list[int]) -> int:
+    def _twoBytes_to_counts(self, byteList: list[int]) -> int:
         ''' combines the two 8-bit words into a single 12-bit word that contains actual ADC count'''
         if len(byteList) != 2: # byteList should be a list containing two 8-bit integers
             raise ValueError(f"Expected byte list of length 2, but received length {len(byteList)}")
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     # Open a connection to a specific bus and device (chip select pin)
     spi.open(bus, device) # connects to /dev/spidev<bus>.<device>
     # Set SPI speed and mode
-    spi.max_speed_hz = 5000 # start slow at first
+    spi.max_speed_hz = 10000 # start slow at first
     spi.mode = 0
     spi.bits_per_word = 8 # would prefer 16, but this is the maximum supported by the Pi's spi driver
     
@@ -74,14 +75,20 @@ if __name__ == "__main__":
     
     cs = gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))
     
-    r = R_CLICK(cs = cs, spi = spi)
+    r = R_CLICK(gpio_cs_pin = cs, spi = spi)
     
     while True:
+        recent_vals = []
         try:
-            mA_val = r.read_mA()
-            print(f"loop current: {mA_val} mA")
+            while len(recent_vals) < 200:
+                mA_val = r.read_mA()
+                recent_vals.append(mA_val)
+            # print(mA_val)            
+            print(f"avg loop current: {sum(recent_vals)/len(recent_vals)} mA")
+            print(f"standard deviation: {stdev(recent_vals)}")
             
             time.sleep(1)
+            #break
             
         except KeyboardInterrupt:
             break

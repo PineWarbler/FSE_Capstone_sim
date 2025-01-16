@@ -2,6 +2,7 @@ from typing import Union, Tuple
 import warnings
 import gpiozero
 import time
+import spidev
 
 from PacketBuilder import dataEntry, errorEntry
 from gpio_manager import GPIO_Manager
