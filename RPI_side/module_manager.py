@@ -4,8 +4,15 @@ import gpiozero
 import time
 import spidev
 
+import sys
+sys.path.append("..") # include parent directory in path
+
 from PacketBuilder import dataEntry, errorEntry
 from gpio_manager import GPIO_Manager
+from module_drivers.T_Click_2 import T_CLICK_2
+from module_drivers.Digital_Input_Module import Digital_Input_Module
+from module_drivers.R_Click import R_CLICK
+from module_drivers.Relay_Channel import RELAY_CHANNEL
 
 class Module_Manager:
     # maintain a list of modules (e.g. R_CLICK, COMPARATOR_CLICK)
@@ -46,7 +53,7 @@ class Module_Manager:
             valueResponse = None
             errorResponse = None
         elif chType.lower() == "di": # then it's a comparator channel instance
-            comparator_value = int(driverObj.readState())
+            di_value = int(driverObj.readState())
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = comparator_value, time = time.time())
             errorResponse = None
         else:
@@ -63,16 +70,16 @@ class Module_Manager:
 
         # now create a driver object for the module of the correct type
         if chType.lower() == "ai":
-            driverObj = R_CLICK(gpio_cs_pin = self.gpio_manager.get(gpio_str),
+            driverObj = R_CLICK(gpio_cs_pin = self.gpio_manager.get_gpio(gpio_str),
                                 spi = self.spi)
         elif chType.lower() == "ao":
-            driverObj = T_CLICK_2(gpio_cs_pin = self.gpio_manager.get(gpio_str),
+            driverObj = T_CLICK_2(gpio_cs_pin = self.gpio_manager.get_gpio(gpio_str),
                                     spi = self.spi)
         
         elif chType.lower() == "di":
-            driverObj = COMPARATOR_CLICK(gpio_in_pin = self.gpio_manager.get(gpio_str))
+            driverObj = COMPARATOR_CLICK(gpio_in_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "do":
-            driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get(gpio_str))
+            driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         else:
             driverObj = None
             warnings.warn(f"[module_manager] Invalid channel type {chType}")
@@ -80,7 +87,7 @@ class Module_Manager:
         self.module_dict[gpio_str] = [chType, driverObj]
     
     def release_all_modules(self):
-        for driver_obj in self.module_dict.values():
+        for chType, driver_obj in self.module_dict.values():
             driver_obj.close()
 
         self.gpio_manager.release_all_gpios()

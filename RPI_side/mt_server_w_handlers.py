@@ -132,9 +132,11 @@ def commandQueueManager(commandQueue, outQueue):
         except KeyboardInterrupt:
             print("commandQueueManager process terminated by keyboardinterrupt")
             return
-        except Exception as e:
-            print(f"commandQueueManager process encountered the unknown error: {str(e)}. Will carry on as if nothing happened.")
-            continue
+        # except Exception as e:
+            # print(f"commandQueueManager process encountered the unknown error: {str(e)}. Will exit after closing modules.")
+            # my_module_manager.release_all_modules()
+            # return
+            # continue
         
     
 
@@ -188,16 +190,19 @@ try:
 except KeyboardInterrupt:
     print("Stopped by Ctrl+C")
 finally:
+    print("closing spi and releasing all GPIOs...", end = "")
+    spi.close()
+    my_module_manager.release_all_modules()
+    print("done")
+    
     print("shutting down threads.")
-    if s:
-        s.close()
-    for t in all_threads:
-        t.join()
+    # actually, daemon=True threads will automatically close when main thread finishes
+    # if s:
+        # s.close()
+    # for t in all_threads:
+        # t.join()
 
-print("closing spi and releasing all GPIOs...", end = "")
-spi.close()
-my_module_manager.release_all_modules()
-print("done")
+
 
 
 print("end of script")

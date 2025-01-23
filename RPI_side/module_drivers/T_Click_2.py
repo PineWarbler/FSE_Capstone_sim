@@ -225,7 +225,7 @@ if __name__ == "__main__":
     # the DAC would reject the frame because it's not a contiguous 16 bits
     spi.no_cs
 
-    cs = gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))
+    cs = gpiozero.DigitalOutputDevice("GPIO13", initial_value = bool(1))
    
     t2 = T_CLICK_2(gpio_cs_pin = cs, spi = spi)
     
@@ -240,10 +240,10 @@ if __name__ == "__main__":
                
     # t2.set_err_low_current_level(1.0) # the default 3.37 mA seems a bit much...
     
-    t2.set_output_current(12) # because we've disabled SPI timeout error, this current level will hold indefinitly until loop error
+    t2.write_mA(12) # because we've disabled SPI timeout error, this current level will hold indefinitly until loop error
 
     
-    time.sleep(5) # only sleep to delay the call to close(), which will reset spi timeout error reporting (end indefinite current hold)
+    time.sleep(10) # only sleep to delay the call to close(), which will reset spi timeout error reporting (end indefinite current hold)
     
     # print("after set current command: ")
     # print(t2.read_status_register())

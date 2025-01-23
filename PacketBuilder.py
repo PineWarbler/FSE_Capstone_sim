@@ -36,13 +36,13 @@ class dataEntry:
         '''
         
         # see https://gist.github.com/stavshamir/0f5bc3e663b7bb33dd2d7822dfcc0a2b#file-book-py
-        return cls(in_dict["chType"], in_dict["name"], in_dict["val"], in_dict["time"])
+        return cls(in_dict["chType"], in_dict["gpio_str"], in_dict["val"], in_dict["time"])
     
     def as_dict(self):
         time_to_send = self.time
         if self.time is None:
             time_to_send = str(datetime.now())
-        return {"chType": self.chType, "name": self.name, "val": self.val, "time": time_to_send}
+        return {"chType": self.chType, "gpio_str": self.gpio_str, "val": self.val, "time": time_to_send}
     
     @property
     def chType(self):
@@ -199,7 +199,7 @@ class DataPacketModel:
         data_str = remainder
         while len(data_str) < msg_length:
             data_str += active_socket.recv(msg_length-len(data_str)).decode()
-        print("data string is " + str(data_str))
+        # print("data string is " + str(data_str))
             
         json_payload = json.loads(data_str)
         
@@ -297,7 +297,9 @@ class DataPacketModel:
     def get_packet_as_string(self) -> str:
         if self.msg_type=="d" and (self.data_entries is None or len(self.data_entries)==0):
             # then we expect this packet to contain data, but it doesn't
-            raise ValueError("There are no data entries.  Did you forget to initialize them?")
+            # raise ValueError("There are no data entries.  Did you forget to initialize them?")
+            # nevermind. We might use this functionality for sending ACKs
+            pass
             
         if self.time is None:
             self.time = datetime.now()

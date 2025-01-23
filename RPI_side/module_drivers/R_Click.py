@@ -41,6 +41,7 @@ class R_CLICK:
     
     def read_mA(self) -> float:
         self.gpio_cs_pin.value = 0 # initiate transaction by pulling cs pin low
+        # time.sleep(1)
         rawResponse = self.spi.readbytes(2)
         self.gpio_cs_pin.value = 1 # end transaction by pulling cs pin high
         
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     # Open a connection to a specific bus and device (chip select pin)
     spi.open(bus, device) # connects to /dev/spidev<bus>.<device>
     # Set SPI speed and mode
-    spi.max_speed_hz = 10000 # start slow at first
+    spi.max_speed_hz = 1200000 # start slow at first
     spi.mode = 0
     spi.bits_per_word = 8 # would prefer 16, but this is the maximum supported by the Pi's spi driver
     
@@ -73,19 +74,19 @@ if __name__ == "__main__":
     spi.no_cs
     spi.threewire
     
-    cs = gpiozero.DigitalOutputDevice("GPIO26", initial_value = bool(1))
+    cs = gpiozero.DigitalOutputDevice("GPIO19", initial_value = bool(1))
     
     r = R_CLICK(gpio_cs_pin = cs, spi = spi)
     
     while True:
         recent_vals = []
         try:
-            while len(recent_vals) < 200:
+            while len(recent_vals) < 100:
                 mA_val = r.read_mA()
                 recent_vals.append(mA_val)
             # print(mA_val)            
-            print(f"avg loop current: {sum(recent_vals)/len(recent_vals)} mA")
-            print(f"standard deviation: {stdev(recent_vals)}")
+            print(f"avg loop current: {sum(recent_vals)/len(recent_vals)} mA standard deviation: {stdev(recent_vals)}")
+            # print(f"standard deviation: {stdev(recent_vals)}")
             
             time.sleep(1)
             #break
