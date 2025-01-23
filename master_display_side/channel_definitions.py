@@ -52,37 +52,55 @@ class Channel_Entry:
     def EngUnits_str(self, mA_val):
         return f"{self.mA_to_EngineeringUnits(mA_val)} {self.units}"
     
+    def getGPIOStr(self):
+        return self._slot2gpio.get(self.boardSlotPosition)
+    
     def __str__(self):
         return f"Channel_Entry object: {self.name} at board slot position {self.boardSlotPosition} with GPIO {self.gpio}"
 
-channels = []
-channels.append(Channel_Entry(name = "Motor Status", boardSlotPosition = "r1", sig_type="do", units=None, realUnitsLowAmount=None, realUnitsHighAmount=None))
-channels.append(Channel_Entry(name="UVT", boardSlotPosition=13, sig_type="ai", units="percent", 
-                          realUnitsLowAmount=0, realUnitsHighAmount=100)) # note that the analog inputs are measured in percentage of open/close
+class Channel_Entries:
+    def __init__(self):        
+        self.channels = dict() # key is name, value is ChannelEntryObj
+        # because the main feature of this class is to map the user-friendly name for the signal (e.g. "AOP") with its board slot position and other info
+        self.channels["Motor Status"] = Channel_Entry(name = "Motor Status", boardSlotPosition = "r1", sig_type="do", units=None, realUnitsLowAmount=None, realUnitsHighAmount=None)
+        # self.channels["UVT"] = Channel_Entry(name="UVT", boardSlotPosition=13, sig_type="ai", units="percent", 
+        #                         realUnitsLowAmount=100, realUnitsHighAmount=0) # note that the analog inputs are measured in percentage of open/close
+        # and that UVT is reversed, meaning that 4mA corresponds to 100%
 
-channels.append(Channel_Entry(name="SPT", boardSlotPosition=12, sig_type="ao", units="PSI", 
-                          realUnitsLowAmount=97.0, realUnitsHighAmount=200.0))
-# other analog outputs
-channels.append(Channel_Entry(name="DPT", boardSlotPosition=None, sig_type="ao", units="PSI", 
-                          realUnitsLowAmount=100.0, realUnitsHighAmount=200.0))
-channels.append(Channel_Entry(name="MAT", boardSlotPosition=None, sig_type="ao", units="Amps", 
-                          realUnitsLowAmount=145, realUnitsHighAmount=300.0))
+        self.channels["SPT"] = Channel_Entry(name="SPT", boardSlotPosition=12, sig_type="ao", units="PSI", 
+                                realUnitsLowAmount=97.0, realUnitsHighAmount=200.0)
+        # other analog outputs
+        # self.channels["DPT"] = Channel_Entry(name="DPT", boardSlotPosition=None, sig_type="ao", units="PSI", 
+        #                         realUnitsLowAmount=100.0, realUnitsHighAmount=200.0)
+        # self.channels["MAT"] = Channel_Entry(name="MAT", boardSlotPosition=None, sig_type="ao", units="Amps", 
+        #                         realUnitsLowAmount=145, realUnitsHighAmount=300.0)
 
-# other analog inputs
-channels.append(Channel_Entry(name="IVT", boardSlotPosition=None, sig_type="ai", units="percent", 
-                          realUnitsLowAmount=0.0, realUnitsHighAmount=100.0))
+        # other analog inputs
+        # self.channels["IVT"] = Channel_Entry(name="IVT", boardSlotPosition=None, sig_type="ai", units="percent", 
+        #                         realUnitsLowAmount=0.0, realUnitsHighAmount=100.0)
 
-# digital inputs
-channels.append(Channel_Entry(name="AOP", boardSlotPosition=12, sig_type="di", units="PSI", 
-                          realUnitsLowAmount=97.0, realUnitsHighAmount=200.0))
+        # digital inputs
+        # self.channels["AOP"] = Channel_Entry(name="AOP", boardSlotPosition=12, sig_type="di", units="PSI", 
+        #                         realUnitsLowAmount=97.0, realUnitsHighAmount=200.0)
 
-print(channels[1].mA_to_EngineeringUnits(4.0))
-print(channels[1].mA_to_EngineeringUnits(12.0))
-print(channels[1].mA_to_EngineeringUnits(20.0))
+    def getGPIOstr_from_signal_name(self, sigName: str) -> str | None:
+        # sigName is like "AOP", "IVT", etc.
+        # will return None if that signal name doesn't exist
+        ch = self.channels.get(sigName)
+        if ch is None:
+            return None
+        return ch.getGPIOStr_from_slotPosition(slotPosition = ch.boardSlotPosition)
+    
+    def getChannelEntry(self, sigName:str) -> Channel_Entry:
+        return self.channels.get(sigName)
+    
+# print(channels[1].mA_to_EngineeringUnits(4.0))
+# print(channels[1].mA_to_EngineeringUnits(12.0))
+# print(channels[1].mA_to_EngineeringUnits(20.0))
 
-print(channels[1].EngineeringUnits_to_mA(0))
-print(channels[1].EngineeringUnits_to_mA(50))
-print(channels[1].EngineeringUnits_to_mA(100))
+# print(channels[1].EngineeringUnits_to_mA(0))
+# print(channels[1].EngineeringUnits_to_mA(50))
+# print(channels[1].EngineeringUnits_to_mA(100))
 
-print(channels[2].EngineeringUnits_to_mA(97))
-print(channels[2].EngineeringUnits_to_mA(199))
+# print(channels[2].EngineeringUnits_to_mA(97))
+# print(channels[2].EngineeringUnits_to_mA(199))
