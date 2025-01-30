@@ -12,8 +12,6 @@ import gpiozero # because RPi.GPIO is unsupported on RPi5
 # import sys
 # sys.path.insert(0, "/home/fsepi51/Documents/FSE_Capstone_sim") # allow this file to find other project modules
 
-my_pin = gpiozero.InputDevice(pin="GPIO26", pull_up=True)
-
 class Digital_Input_Module:
     def __init__(self, gpio_in_pin : gpiozero.DigitalInputDevice):
         self.gpio_in_pin = gpio_in_pin
@@ -25,7 +23,7 @@ class Digital_Input_Module:
         pass
 
 if __name__ == "__main__":
-    my_pin = gpiozero.DigitalInputDevice("GPIO19")
+    my_pin = gpiozero.DigitalInputDevice("GPIO19", pull_up=True)
     dip = DigitalInput_Pullup(gpio_in_pin = my_pin)
     while True:
         try:

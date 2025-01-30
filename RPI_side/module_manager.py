@@ -81,8 +81,7 @@ class Module_Manager:
                                     spi = self.spi)
         
         elif chType.lower() == "di":
-            # TODO: fix this to be a pullup instance
-            driverObj = COMPARATOR_CLICK(gpio_in_pin = self.gpio_manager.get_gpio(gpio_str))
+            driverObj = Digital_Input_Module(gpio_in_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "do":
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         else:

@@ -59,10 +59,10 @@ def handle_client(conn, addr, commandQueue):
     
 
     # if dpm.msg_type == "d":
-    with mutex:
-        commandQueue += dpm.data_entries # now the GPIO handler can start executing thes commands
-    if len(dpm.data_entries) > 0:
-        print("[handle client] placed dpm entries on command queue")
+    if dpm.data_entries is not None:
+        with mutex:
+            commandQueue += dpm.data_entries # now the GPIO handler can start executing thes commands
+        print(f"[handle client] placed {len(dpm.data_entries)} dpm entries on command queue")
     else :
         print("[handle client] received empty data packet")
     
