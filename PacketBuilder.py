@@ -172,6 +172,13 @@ class DataPacketModel:
         ''' creates an instance of DataPacketModel from the data on the socket input buffer '''
         first_slice = active_socket.recv(4).decode() # apparently, minimum buffer size is 4
         print("received first_slice: " + str(first_slice))
+        
+        if len(first_slice) < 4:
+            # then there's actually no data to parse. Return an empty class object
+            print(f"[PacketBuilder from_socket] Found data on the socket with first slice = {first_slice}. Will not parse rest of data.")
+            import time
+            return cls(dataEntries = None, msg_type = "d", error_entries=[], time=time.time())
+            
         msg_type = first_slice[0] # first byte should be type of message
         print("msg_type is " + str(msg_type))
         
