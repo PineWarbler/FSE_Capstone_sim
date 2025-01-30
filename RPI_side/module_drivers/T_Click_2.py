@@ -110,7 +110,7 @@ class T_CLICK_2:
     CURRENT_OUTPUT_RANGE_MIN = 3.9
     CURRENT_OUTPUT_RANGE_MAX = 20.0
     
-    def __init__(self, gpio_cs_pin, spi : spidev.SpiDev):
+    def __init__(self, gpio_cs_pin, spi : spidev.SpiDev, make_persistent : bool = True):
         '''
         gpio_cs_pin : str, the GPIO object that will be used as the chip select pin. Uses the gpiozero library
         spi : spidev.SpiDev, the SPI object that will be used to communicate with the `997
@@ -118,6 +118,13 @@ class T_CLICK_2:
         self.spi_master = spi           
         self.gpio_cs_pin = gpio_cs_pin # use the gpio_manager class to fetch the GPIO object
         self.dac997_status = DAC997_status(None, None, None, None, None, None) # initialize to empty data model
+        
+        if make_persistent:
+            # disable SPI timeout error reporting (i.e. maintain output current indefinitely)
+            # otherwise, the chip will assert output current level set in ERR_LOW reg, which by default is 0x24 -> 3.37 mA
+            self.set_error_config_mode(50, True, False, False,
+                                  True, 100, True)
+            
     
     def _write_data(self, reg: int, data_in: int): # TODO: add return type hint for type of `resp`
         ''' joins data to reg addr into a 24-bit (3-byte) word, then writes over SPI, 
@@ -225,9 +232,9 @@ if __name__ == "__main__":
     # the DAC would reject the frame because it's not a contiguous 16 bits
     spi.no_cs
 
-    cs = gpiozero.DigitalOutputDevice("GPIO13", initial_value = bool(1))
+    cs = gpiozero.DigitalOutputDevice("GPIO19", initial_value = bool(1))
    
-    t2 = T_CLICK_2(gpio_cs_pin = cs, spi = spi)
+    t2 = T_CLICK_2(gpio_cs_pin = cs, spi = spi, make_persistent = True)
     
     print(t2.read_status_register())
     
@@ -235,12 +242,12 @@ if __name__ == "__main__":
     
     # disable SPI timeout error reporting (i.e. maintain output current indefinitely)
     # otherwise, the chip will assert output current level set in ERR_LOW reg, which by default is 0x24 -> 3.37 mA
-    t2.set_error_config_mode(50, True, False, False,
-                              True, 100, True)
+    # t2.set_error_config_mode(50, True, False, False,
+                              # True, 100, True)
                
     # t2.set_err_low_current_level(1.0) # the default 3.37 mA seems a bit much...
     
-    t2.write_mA(12) # because we've disabled SPI timeout error, this current level will hold indefinitly until loop error
+    t2.write_mA(10.5) # because we've disabled SPI timeout error, this current level will hold indefinitly until loop error
 
     
     time.sleep(10) # only sleep to delay the call to close(), which will reset spi timeout error reporting (end indefinite current hold)
