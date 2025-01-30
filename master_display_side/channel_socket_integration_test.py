@@ -18,17 +18,21 @@ from channel_definitions import Channel_Entry, Channel_Entries
 my_channel_list = Channel_Entries() # initialize to empty
 my_channel_list.add_ChannelEntry(Channel_Entry(name="SPT", boardSlotPosition=12, sig_type="ao", units="PSI", 
                                                realUnitsLowAmount=97.0, realUnitsHighAmount=200.0))
-my_channel_list[-1].gpio = "GPIO19" # override for now
+my_channel_list.channels["SPT"].gpio = "GPIO19" # override for now
 
 my_channel_list.add_ChannelEntry(Channel_Entry(name="UVT", boardSlotPosition=13, sig_type="ai", units="percent", 
                                                realUnitsLowAmount=100, realUnitsHighAmount=0)) # note that the analog inputs are measured in percentage of open/close
 # and that UVT is reversed, meaning that 4mA corresponds to 100%
-my_channel_list[-1].gpio = "GPIO13" # override for now
+my_channel_list.channels["UVT"].gpio = "GPIO13" # override for now
 
 my_channel_list.add_ChannelEntry(Channel_Entry(name = "Motor Status", boardSlotPosition = "r1", sig_type="do", units=None, realUnitsLowAmount=None, realUnitsHighAmount=None))
-my_channel_list[-1].gpio = "GPIO6" # override for now
+my_channel_list.channels["Motor Status"].gpio = "GPIO6" # override for now
 
-print(f"Finished loading channel list. Here they are:")
+my_channel_list.add_ChannelEntry(Channel_Entry(name="AOP", boardSlotPosition=12, sig_type="di", units="PSI", 
+                                               realUnitsLowAmount=97.0, realUnitsHighAmount=200.0))
+my_channel_list.channels["AOP"].gpio = "GPIO5" # override for now
+
+print("Finished loading channel list. Here they are:")
 for value in my_channel_list.channels.values():
     print(f"   > {value}")
 
@@ -49,6 +53,8 @@ while True:
     sigName = input("Signal name (-h for list): ")
     if sigName.lower().strip() == "-h":
         print(", ".join(my_channel_list.channels.keys()))
+        continue
+    
     ch2send = my_channel_list.getChannelEntry(sigName = sigName)
     if ch2send is None:
         print(">> INVALID signal name chosen. Try again.")
@@ -62,14 +68,15 @@ while True:
             print(">> INVALID numerical input. Try again.")
             continue
 
-        de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.getGPIOStr(), 
+        # todo: revert to gpio_str = ch2send.getGPIOstr()
+        de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.gpio, 
                        val = ch2send.convert_to_packetUnits(valF), 
                        time = time.time())
         print(f"[debug] prepared dataEntry is {de}")
 
     elif ch2send.sig_type.lower()[1] == "i":
         # then send a dummy datapacket to prompt a reading of the sig name
-        de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.getGPIOStr(), 
+        de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.gpio, 
                 val = -99, 
                 time = time.time())
         print("  since this is an input signal, we will automatically send a packet with null data")

@@ -32,9 +32,12 @@ class Module_Manager:
         '''TODO: write docstring
         '''
         if gpio_str not in self.module_dict:
+            print(f"[Module_Manager] making a module entry for {gpio_str} as a {chType}")
             self.make_module_entry(gpio_str = gpio_str, chType = chType)
 
         driverObj = self.module_dict.get(gpio_str)[1] # second element in value list is the driver object
+        print(f"[Module_Manager] Found the driver object {driverObj}")
+
         # first element is the channel type
         if chType.lower() == "ao": # then it's a T_CLICK_2 instance
             driverObj.write_mA(val)
@@ -49,6 +52,7 @@ class Module_Manager:
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = ma_reading, time = time.time())
             errorResponse = None
         elif chType.lower() == "do": # then it's a relay channel instance
+            print(f"[Module_Manager] writingState to {val}")
             driverObj.writeState(state = bool(val))
             valueResponse = None
             errorResponse = None
@@ -77,13 +81,14 @@ class Module_Manager:
                                     spi = self.spi)
         
         elif chType.lower() == "di":
+            # TODO: fix this to be a pullup instance
             driverObj = COMPARATOR_CLICK(gpio_in_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "do":
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         else:
             driverObj = None
             warnings.warn(f"[module_manager] Invalid channel type {chType}")
-        
+        print("[Module_Manager make_module_entry] will insert key {gpio_str} with values {chType} and {driverObj}")
         self.module_dict[gpio_str] = [chType, driverObj]
     
     def release_all_modules(self):
