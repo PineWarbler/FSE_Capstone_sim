@@ -105,6 +105,7 @@ def commandQueueManager(commandQueue, outQueue):
                 # send data to R1000
                 for de in commandQueue: # a list of data entries
                     # try to find the carrier board object that corresponds to the data entry
+                    # this execute_command method handles the different behaviors necessary for inputs vs outputs
                     de_resp, err_resp = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
 
                     # now place the responses onto the outgoing queues for the handle_client thread
