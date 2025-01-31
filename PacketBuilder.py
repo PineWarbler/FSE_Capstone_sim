@@ -5,7 +5,7 @@ Created on Sat Oct 19 12:49:44 2024
 @author: REYNOLDSPG21
 """
 
-from datetime import datetime
+# from datetime import datetime
 from typing import List, Union
 import warnings
 import socket
@@ -41,7 +41,7 @@ class dataEntry:
     def as_dict(self):
         time_to_send = self.time
         if self.time is None:
-            time_to_send = str(datetime.now())
+            time_to_send = time.time()
         return {"chType": self.chType, "gpio_str": self.gpio_str, "val": self.val, "time": time_to_send}
     
     @property
@@ -119,12 +119,12 @@ class errorEntry:
             return
         if not isinstance(o_time, float):
             raise TypeError(f"Expected a float (UNIX timestamp) as `time`, but received an object of type {type(o_time)}")
-        self._time = str(o_time)
+        self._time = o_time
     
     def as_dict(self) -> dict:
         ''' use this method when preparing a packet'''
         if self.time is None:
-            self.time = str(datetime.now())
+            self.time = time.time()
         return {"source": self.source, "criticalityLevel": self.criticalityLevel, 
                 "description": self.description, "time": self.time}
     
@@ -309,7 +309,7 @@ class DataPacketModel:
             pass
             
         if self.time is None:
-            self.time = datetime.now()
+            self.time = time.time()
             
         json_section_str = str(self._pack_json(self.time))
             

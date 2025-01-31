@@ -51,7 +51,7 @@ class R_CLICK:
         pass
     
     def __str__(self) -> str:
-        return f"R Click with channel name: {self.output_channel_name}"
+        return f"R Click assigned to gpio pin: {self.gpio_cs_pin}"
     
     
     

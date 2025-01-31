@@ -210,6 +210,7 @@ class T_CLICK_2:
         self.write_NOP()
         
     def close(self) -> None:
+        print("T2 driver obj `close` called")
         self.reset()
        
         

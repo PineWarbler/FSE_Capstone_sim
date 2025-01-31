@@ -27,10 +27,11 @@ class GPIO_Manager:
 
         if chType.lower() == "di":
             # the di input requires a pullup
-            self.gpio_dict[gpio_str] = gpiozero.InputDevice(pin=gpio_str, pull_up=True)
-        elif chType.lower() == "ao":
+            self.gpio_dict[gpio_str] = gpiozero.DigitalInputDevice(pin=gpio_str, pull_up=True)
+        # elif chType.lower() == "ao":
             # TODO: remove this pullup from initialization when we've implemented hardware pullup resistors for the T2's CS line
-            self.gpio_dict[gpio_str] = gpiozero.InputDevice(pin=gpio_str, pull_up=True)
+            # self.gpio_dict[gpio_str] = gpiozero.DigitalOutputDevice(pin=gpio_str, pull_up=True)
+            # ok. DigitalOutput devices cannot be configured to have a pullup resistor. Will have to settle for inital_value=1
         else:
             self.gpio_dict[gpio_str] = gpiozero.DigitalOutputDevice(pin = gpio_str, initial_value = bool(1))
     
