@@ -9,3 +9,14 @@ class RELAY_CHANNEL:
 
     def close(self) -> None:
         pass
+
+if __name__ == "__main__":
+    p = gpiozero.DigitalOutputDevice("GPIO6")
+    rc = RELAY_CHANNEL(gpio_out_pin = p)
+    
+    import time
+    rc.writeState(True)
+    time.sleep(3)
+    rc.writeState(False)
+    time.sleep(3)
+    p.close()

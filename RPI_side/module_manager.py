@@ -33,12 +33,22 @@ class Module_Manager:
         '''
         if gpio_str not in self.module_dict:
             self.make_module_entry(gpio_str = gpio_str, chType = chType)
+            print(f"[module_manager] made a new module entry. module_dict is now {self.module_dict}")
 
         driverObj = self.module_dict.get(gpio_str)[1] # second element in value list is the driver object
+        print(f"[module_manager] driverObj is {driverObj}")
+        
         # first element is the channel type
         if chType.lower() == "ao": # then it's a T_CLICK_2 instance
-            driverObj.write_mA(val)
+            try:
+                driverObj.write_mA(val)
+            except ValueError:
+                print(f"Transmitter driver refused to assert {val} mA")
             # now check for errors...
+            print(f" --- T2 status --- after write {val}")
+            driverObj.read_status_register()
+            print(str(driverObj.dac997_status))
+            print("----")
             if driverObj.dac997_status.curr_loop_sts == 1: # then a loop error is happening right now
                 errorResponse = errorEntry(source = f"Analog Output Module", criticalityLevel = "High", description = f"Loop error detected on {gpio_str}.")
             else:
@@ -49,12 +59,13 @@ class Module_Manager:
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = ma_reading, time = time.time())
             errorResponse = None
         elif chType.lower() == "do": # then it's a relay channel instance
+            print("[module_manager] entered do branch to write val: {bool(val)}")
             driverObj.writeState(state = bool(val))
             valueResponse = None
             errorResponse = None
         elif chType.lower() == "di": # then it's a comparator channel instance
             di_value = int(driverObj.readState())
-            valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = comparator_value, time = time.time())
+            valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = di_value, time = time.time())
             errorResponse = None
         else:
             valueResponse = None
@@ -67,6 +78,7 @@ class Module_Manager:
         # add an entry to the dictionary because it doesn't exist yet.
         # Also need to request the gpio_manager to add a GPIO object to itself
         self.gpio_manager.put_gpio(gpio_str, chType = chType)
+        print(f"[module_manager.make_module_entry] after put_gpio, list is {self.gpio_manager.gpio_dict}")
 
         # now create a driver object for the module of the correct type
         if chType.lower() == "ai":
@@ -79,12 +91,14 @@ class Module_Manager:
         elif chType.lower() == "di":
             driverObj = Digital_Input_Module(gpio_in_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "do":
+            print(f"[module_manager.make_module_entry] created a relay channel object with gpio={self.gpio_manager.get_gpio(gpio_str)}") 
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         else:
             driverObj = None
             warnings.warn(f"[module_manager] Invalid channel type {chType}")
         
         self.module_dict[gpio_str] = [chType, driverObj]
+        print(f"[module_manager.make_module_entry] new module_dict is {self.module_dict}")
     
     def release_all_modules(self):
         for chType, driver_obj in self.module_dict.values():

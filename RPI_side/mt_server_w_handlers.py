@@ -34,6 +34,7 @@ mutex = Lock()
 # assumes that one spi bus is connected to all modules
 spi = spidev.SpiDev()
 spi.open(0, 0)
+spi.max_speed_hz = 10000
 spi.no_cs
 
 my_module_manager = Module_Manager(spi = spi)
@@ -73,7 +74,7 @@ def handle_client(conn, addr, commandQueue):
 
     # loop infinitely while there's not stuff on the outQueue
     # and there's still stuff remaining on the commandQueue
-    while len(outQueue) != 0 and len(commandQueue) > 0:
+    while len(commandQueue) > 0: # len(outQueue) != 0 and 
         # the commandQueueManager will clear the commandQueue when it finishes the batch
         pass
         
@@ -82,7 +83,7 @@ def handle_client(conn, addr, commandQueue):
                               error_entries = errorList, 
                               time = time.time())
     
-        
+    print(f"[mt_server_w_handlers.handle_client] dpm_out is {str(dpm_out)}")
     conn.send(dpm_out.get_packet_as_string().encode())
 
     outQueue.clear() # reset because we've sent all of them to the master
@@ -104,9 +105,13 @@ def commandQueueManager(commandQueue, outQueue):
             if len(commandQueue) != 0:
                 # send data to R1000
                 for de in commandQueue: # a list of data entries
+                    print(f"GPIO thread is treating the data for command {str(de)}...")
+                    
                     # try to find the carrier board object that corresponds to the data entry
                     # this execute_command method handles the different behaviors necessary for inputs vs outputs
                     de_resp, err_resp = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
+                    
+                    print(f"   [mt_server_w_handlesr.commandQueueManager] de_resp is {str(de_resp)}")
 
                     # now place the responses onto the outgoing queues for the handle_client thread
                     if err_resp is not None:
@@ -121,7 +126,7 @@ def commandQueueManager(commandQueue, outQueue):
                         with mutex:
                             outQueue.append(dataEntry(chType = "ao", gpio_str = "ack", val = 0, time = time.time())) # chtype as ao to avoid error raised by dataEntry class
 
-                    print(f"GPIO thread is outputting the data for entry {str(de)}...")
+                    
                 
                 with mutex:
                     # clearing the command queue is the designated
@@ -191,9 +196,12 @@ try:
 except KeyboardInterrupt:
     print("Stopped by Ctrl+C")
 finally:
-    print("closing spi and releasing all GPIOs...", end = "")
-    spi.close()
+    print("closing all modules and GPIOs...", end="")
     my_module_manager.release_all_modules()
+    print("done")
+    
+    print("closing spi...", end = "")
+    spi.close()
     print("done")
     
     print("shutting down threads.")
