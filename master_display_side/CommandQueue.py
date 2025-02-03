@@ -37,6 +37,24 @@ class CommandQueue:
     def put_all(self, entries: list[dataEntry]) -> None:
         for d in entries:
             self.put(d)
+    
+    def get_num_due(self) -> int:
+        ''' returns the number of elements that are (over)due. Useful to call before `pop_all_due` in a multi-threaded
+        context where a mutex lock is required
+        '''
+        refTime = time.time()
+
+        if len(self.heap) == 0:
+            return 0
+        
+        n = 0
+        for el in self.heap:
+            if el[0] <= refTime:
+                n += 1
+            else:
+                break
+            
+        return n
                 
     def pop_due(self) -> Union[dataEntry, None]:
         ''' checks to see if the next entry in the heap is (over)due.  If so, pop and return that entry object.

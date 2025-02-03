@@ -41,7 +41,7 @@ class Channel_Entry:
         # analog (mA) values are converted from engineering units to a mA value
         # digital values are left as 0 or 1
         if self.sig_type[0].lower() == "a":
-            return self._mA_to_EngineeringUnits(val)
+            return self._EngineeringUnits_to_mA(val)
         elif self.sig_type[0].lower() == "d":
             return int(val)
         else:
@@ -53,7 +53,7 @@ class Channel_Entry:
         else:
             return None
     
-    def EngineeringUnits_to_mA(self, engUnits):
+    def _EngineeringUnits_to_mA(self, engUnits):
         if self.sig_type[0].lower() == "a":
             return 4.0 + ((engUnits - self.realUnitsLowAmount) / (self.realUnitsHighAmount - self.realUnitsLowAmount)) * (20.0 - 4.0)
         elif self.sig_type[0].lower() == "d":
