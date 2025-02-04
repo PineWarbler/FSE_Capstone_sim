@@ -30,6 +30,38 @@ digital_inputs_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, stick
 # Analog Outputs
 ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16)).pack(pady=10)
 
+def show_advanced_settings():
+    dropdown_frame.pack(pady=5)
+
+def hide_advanced_settings():
+    dropdown_frame.pack_forget()
+
+# Dropdown Menu
+dropdown_button = ctk.CTkButton(analog_outputs_frame, text="Advanced Settings", command=show_advanced_settings)
+dropdown_button.pack(pady=5)
+
+dropdown_frame = ctk.CTkFrame(analog_outputs_frame)
+ctk.CTkLabel(dropdown_frame, text="Start Value").grid(row=0, column=0, padx=5)
+start_entry = ctk.CTkEntry(dropdown_frame, width=100)
+start_entry.grid(row=0, column=1, padx=5)
+start_send_button = ctk.CTkButton(dropdown_frame, text="send", width=40, fg_color="green")
+start_send_button.grid(row=0, column=2, padx=5)
+
+ctk.CTkLabel(dropdown_frame, text="End Value").grid(row=1, column=0, padx=5)
+end_entry = ctk.CTkEntry(dropdown_frame, width=100)
+end_entry.grid(row=1, column=1, padx=5)
+end_send_button = ctk.CTkButton(dropdown_frame, text="send", width=40, fg_color="green")
+end_send_button.grid(row=1, column=2, padx=5)
+
+ctk.CTkLabel(dropdown_frame, text="Rate").grid(row=2, column=0, padx=5)
+rate_entry = ctk.CTkEntry(dropdown_frame, width=100)
+rate_entry.grid(row=2, column=1, padx=5)
+rate_send_button = ctk.CTkButton(dropdown_frame, text="send", width=40, fg_color="green")
+rate_send_button.grid(row=2, column=2, padx=5)
+
+cancel_button = ctk.CTkButton(dropdown_frame, text="Cancel", command=hide_advanced_settings, fg_color="red")
+cancel_button.grid(row=3, columnspan=2, pady=5)
+
 # DPT
 dpt_frame = ctk.CTkFrame(analog_outputs_frame)
 dpt_frame.pack(pady=5)
@@ -81,14 +113,11 @@ ctk.CTkLabel(ivt_frame, text="IVT").pack()
 
 # Digital Outputs
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
-
 motor_status_switch = ctk.CTkSwitch(digital_outputs_frame, text="Motor Status", onvalue="ON", offvalue="OFF")
 motor_status_switch.pack(pady=10)
 motor_status_switch.select()
 
 # Digital Inputs
-ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
-
 def toggle_light():
     indicator_light.configure(fg_color="green" if motor_status_switch.get() else "red")
 
@@ -102,4 +131,5 @@ motor_status_switch.configure(command=toggle_light)
 
 # Run the app
 app.mainloop()
+
 
