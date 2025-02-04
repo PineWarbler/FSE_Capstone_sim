@@ -1,10 +1,10 @@
 import customtkinter as ctk
-from tkinter import Canvas
+from tkdial import Meter
 
 # Configure the main application window
 app = ctk.CTk()
 app.title("ICS Phase I - Beta")
-app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")  # Make the window fill the entire screen
+app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 
@@ -63,42 +63,21 @@ ctk.CTkLabel(mat_frame, text="last sent:").grid(row=1, column=2, pady=5)
 # Analog Inputs
 ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack(pady=10)
 
-# # UVT Gauge
-# uvt_label = ctk.CTkLabel(analog_inputs_frame, text="UVT", font=("Arial", 14))
-# uvt_label.pack(pady=5)
-# uvt_canvas = Canvas(analog_inputs_frame, width=100, height=100, bg="white", highlightthickness=0)
-# uvt_canvas.pack()
-# uvt_canvas.create_arc(10, 10, 90, 90, start=0, extent=180, fill="lightgray", outline="black")
-# uvt_canvas.create_text(50, 70, text="50", font=("Arial", 12))
-# uvt_canvas.create_line(50, 50, 50, 20, width=3, fill="black")
-#
-# # IVT Gauge
-# ivt_label = ctk.CTkLabel(analog_inputs_frame, text="IVT", font=("Arial", 14))
-# ivt_label.pack(pady=5)
-# ivt_canvas = Canvas(analog_inputs_frame, width=100, height=100, bg="white", highlightthickness=0)
-# ivt_canvas.pack()
-# ivt_canvas.create_arc(10, 10, 90, 90, start=0, extent=180, fill="lightgray", outline="black")
-# ivt_canvas.create_text(50, 70, text="50", font=("Arial", 12))
-# ivt_canvas.create_line(50, 50, 50, 20, width=3, fill="black")
+# UVT Gauge
+uvt_frame = ctk.CTkFrame(analog_inputs_frame)
+uvt_frame.pack(pady=5)
+uvt_gauge = Meter(uvt_frame, scroll_steps=0, interactive=False, radius=100)
+uvt_gauge.set(50)
+uvt_gauge.pack()
+ctk.CTkLabel(uvt_frame, text="UVT").pack()
 
-
-# try:
-#     uvt_meter = Meter(analog_inputs_frame, interactive=False, radius=100)  # Adjust radius for size
-#     uvt_meter.set(50)  # Example value
-#     uvt_meter.pack(pady=10)
-# except Exception as e:
-#     ctk.CTkLabel(analog_inputs_frame, text=f"Error with Meter: {e}", font=("Arial", 12), fg_color="red").pack(pady=10)
-#
-# # IVT Gauge
-# ivt_label = ctk.CTkLabel(analog_inputs_frame, text="IVT", font=("Arial", 14))
-# ivt_label.pack(pady=5)
-#
-# try:
-#     ivt_meter = Meter(analog_inputs_frame, interactive=False, radius=100)
-#     ivt_meter.set(70)  # Example value
-#     ivt_meter.pack(pady=10)
-# except Exception as e:
-#     ctk.CTkLabel(analog_inputs_frame, text=f"Error with Meter: {e}", font=("Arial", 12), fg_color="red").pack(pady=10)
+# IVT Gauge
+ivt_frame = ctk.CTkFrame(analog_inputs_frame)
+ivt_frame.pack(pady=5)
+ivt_gauge = Meter(ivt_frame, scroll_steps=0, interactive=False, radius=100)
+ivt_gauge.set(50)
+ivt_gauge.pack()
+ctk.CTkLabel(ivt_frame, text="IVT").pack()
 
 # Digital Outputs
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
@@ -110,7 +89,6 @@ motor_status_switch.select()
 # Digital Inputs
 ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
 
-# Functional Indicator Light
 def toggle_light():
     indicator_light.configure(fg_color="green" if motor_status_switch.get() else "red")
 
@@ -124,3 +102,4 @@ motor_status_switch.configure(command=toggle_light)
 
 # Run the app
 app.mainloop()
+
