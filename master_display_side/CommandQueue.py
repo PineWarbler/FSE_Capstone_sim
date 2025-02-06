@@ -31,30 +31,30 @@ class CommandQueue:
         time = entry.time
         if isinstance(time, datetime):
             time = time.timestamp() # convert to numerical value for insertion
-        heapq.heappush(self.heap, (float(time), entry)) # first element in tuple is priority ranking, second element
+        heapq.heappush(self.heap, entry) # note that the dataEntry class has __lt__ defined as comparing the `time` elements
+        # first element in tuple is priority ranking, second element
         # is object to store
         
     def put_all(self, entries: list[dataEntry]) -> None:
         for d in entries:
             self.put(d)
     
-    def get_num_due(self) -> int:
-        ''' returns the number of elements that are (over)due. Useful to call before `pop_all_due` in a multi-threaded
-        context where a mutex lock is required
-        '''
-        refTime = time.time()
-
-        if len(self.heap) == 0:
-            return 0
+    # def get_num_due(self) -> int:
+    #     ''' returns the number of elements that are (over)due. Useful to call before `pop_all_due` in a multi-threaded
+    #     context where a mutex lock is required
+    #     '''
+    #     if len(self.heap) == 0:
+    #         return 0
         
-        n = 0
-        for el in self.heap:
-            if el[0] <= refTime:
-                n += 1
-            else:
-                break
+    #     refTime = time.time() 
+    #     n = 0
+    #     for i in range(0, len(self.heap)):
+    #         if self.heap[i][0] <= refTime:
+    #             n += 1
+    #         else:
+    #             break
             
-        return n
+    #     return n
                 
     def pop_due(self) -> Union[dataEntry, None]:
         ''' checks to see if the next entry in the heap is (over)due.  If so, pop and return that entry object.
@@ -62,10 +62,11 @@ class CommandQueue:
         if len(self.heap) == 0:
             return None
         
-        if self.heap[0][0] <= time.time(): # remember that first element in tuple is timestamp, second is object
+        refTime = time.time()
+        if self.heap[0].time <= refTime: # remember that first element in tuple is timestamp, second is object
             # if the timestamp on the heap should have been completed earlier
             # return it immediately
-            return heapq.heappop(self.heap)[1]
+            return heapq.heappop(self.heap)
         return None
     
     def pop_all_due(self) -> list[dataEntry]:
@@ -88,7 +89,7 @@ class CommandQueue:
         self.heap.clear() # remove all items from heap
         
         reversedHeap = beforeRemoveAll[::-1]
-        return [h[1] for h in reversedHeap] # return only the object, not the timestamp
+        return [h for h in reversedHeap] # return only the object, not the timestamp
 
             
     def __str__(self) -> str:
@@ -98,13 +99,15 @@ class CommandQueue:
         return len(self.heap)
         
 if __name__ == "__main__":
-    d1 = dataEntry(chType = "ao", gpio_str = "GPIO26", val = 18.50, time = time.time()+20)
-    d2 = dataEntry(chType = "ai", gpio_str = "GPIO23", val = 0.00, time = time.time()+200)
+    d1 = dataEntry(chType = "ao", gpio_str = "GPIO26", val = 18.50, time = time.time()+5)
+    d2 = dataEntry(chType = "ai", gpio_str = "GPIO23", val = 0.00, time = time.time()+10)
     d3 = dataEntry(chType = "di", gpio_str = "GPIO24", val = int(1), time = time.time()-10)
     
     q = CommandQueue()
     q.put_all([d1, d2, d3])
-    todo = q.pop_all_due() # should only return the "ch3" entry
-    todo_as_str = [str(t) for t in todo]
-    print(f"todo is {todo_as_str}")
+    while len(q) > 0:
+        todo = q.pop_all_due() # should only return the "ch3" entry
+        if len(todo) != 0:
+            todo_as_str = [str(t) for t in todo]
+            print(f"todo is {todo_as_str}")
     

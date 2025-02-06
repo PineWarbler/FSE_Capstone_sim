@@ -29,6 +29,9 @@ class dataEntry:
         self.val = val
         self.time = time
     
+    def __lt__(self, other):
+        return self.time < other.time  # to enable a heap implementation in another file...
+    
     @classmethod
     def from_dict(cls, in_dict: dict) -> 'dataEntry':
         ''' alternative constructor; converts a dict into a dataEntry obj.
