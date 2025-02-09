@@ -20,7 +20,20 @@ analog_outputs_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
 analog_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 analog_inputs_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-# UVT Gauge
+
+digital_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
+digital_outputs_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+digital_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
+digital_inputs_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+# Analog Inputs
+ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack(pady=10)
+
+# Analog Outputs
+ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16)).pack(pady=10)
+
+UVT Gauge
 uvt_frame = ctk.CTkFrame(analog_inputs_frame)
 uvt_frame.pack(pady=5)
 uvt_gauge = Meter(uvt_frame, scroll_steps=0, interactive=False, radius=100)
@@ -35,20 +48,8 @@ ivt_gauge = Meter(ivt_frame, scroll_steps=0, interactive=False, radius=100)
 ivt_gauge.set(50)
 ivt_gauge.pack()
 ctk.CTkLabel(ivt_frame, text="IVT").pack()
-# Analog Outputs
-digital_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
-digital_outputs_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
-
-digital_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
-digital_inputs_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
-
-# Analog Inputs
-ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack(pady=10)
-
-# Analog Outputs
-ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16)).pack(pady=10)
-
 saved_values = {}
+
 
 def toggle_dropdown(frame):
     if frame.winfo_ismapped():
@@ -82,11 +83,11 @@ def save_input_value(name, input_value_entry, current_label):
 def create_dropdown(parent, name):
     frame = ctk.CTkFrame(parent)
 
-    ctk.CTkLabel(frame, text="Start Value").pack()
+    ctk.CTkLabel(frame, text="Minimum Value").pack()
     start_entry = ctk.CTkEntry(frame, width=100)
     start_entry.pack()
 
-    ctk.CTkLabel(frame, text="End Value").pack()
+    ctk.CTkLabel(frame, text="Maximum Value").pack()
     end_entry = ctk.CTkEntry(frame, width=100)
     end_entry.pack()
 
@@ -105,11 +106,12 @@ def create_dropdown(parent, name):
     return frame
 
 # Create analog outputs with separate dropdowns and input fields
-for label in ["DPT", "SPT", "MAT"]:
+units = {"DPT": "PSI", "SPT": "PSI", "MAT": "°C","OPT":"PSI"}
+for label in ["DPT", "SPT", "MAT","OPT"]:
     frame = ctk.CTkFrame(analog_outputs_frame)
     frame.pack(pady=5)
 
-    ctk.CTkLabel(frame, text=f"{label} (PSI)").grid(row=0, column=0, padx=5)
+    ctk.CTkLabel(frame, text=f"{label} ({units[label]})").grid(row=0, column=0, padx=5)
     input_value_entry = ctk.CTkEntry(frame, width=100)
     input_value_entry.grid(row=0, column=1, padx=5)
 
@@ -124,12 +126,11 @@ for label in ["DPT", "SPT", "MAT"]:
     arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame: toggle_dropdown(f))
     arrow_button.grid(row=0, column=4, padx=5)
 
+
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
 motor_status_switch = ctk.CTkSwitch(digital_outputs_frame, text="Motor Status", onvalue="ON", offvalue="OFF")
 motor_status_switch.pack(pady=10)
 motor_status_switch.select()
-
-# Digital Inputs
 ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
 
 def toggle_light():
@@ -143,3 +144,7 @@ indicator_light = ctk.CTkLabel(indicator_frame, text="", width=20, height=20, co
 indicator_light.pack(side="left")
 # Run the app
 app.mainloop()
+
+# Run the app
+app.mainloop()
+
