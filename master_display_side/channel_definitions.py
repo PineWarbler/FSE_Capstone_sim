@@ -1,3 +1,5 @@
+import json
+
 class Channel_Entry:
     ''' 
     This class defines each signal that the Master Laptop
@@ -27,13 +29,14 @@ class Channel_Entry:
     }
 
     def __init__(self, name : str, boardSlotPosition : int, sig_type : str, units : str | None,
-                 realUnitsLowAmount : str | None, realUnitsHighAmount : str | None):
+                 realUnitsLowAmount : str | None, realUnitsHighAmount : str | None, showOnGUI:bool=True):
         self.name = name
         self.boardSlotPosition = boardSlotPosition
         self.sig_type = sig_type
         self.units = units
         self.realUnitsLowAmount = realUnitsLowAmount
         self.realUnitsHighAmount = realUnitsHighAmount
+        self.showOnGUI = showOnGUI
 
         self.gpio = self._slot2gpio.get(boardSlotPosition)
     
@@ -60,9 +63,10 @@ class Channel_Entry:
             return int(engUnits)
         else:
             return None
-    
+       
     def EngUnits_str(self, mA_val):
         return f"{self._mA_to_EngineeringUnits(mA_val)} {self.units}"
+    
     
     def getGPIOStr(self):
         return self._slot2gpio.get(self.boardSlotPosition)
@@ -109,6 +113,16 @@ class Channel_Entries:
     def getChannelEntry(self, sigName:str) -> Channel_Entry:
         return self.channels.get(sigName)
     
+    def load_from_config_file(self, config_file_path: str) -> None:
+        ''' reads a json config file. Reads the channel contents from the config file and adds channel entries to this instance
+        '''
+        with open(config_file_path, 'r') as f:
+            all_json = json.load(f)
+        chs_from_json = all_json.get("signals")
+        for s in chs_from_json:
+            self.add_ChannelEntry(Channel_Entry(name=s.get("name"), boardSlotPosition=s.get("boardSlotPosition"), sig_type=s.get("sig_type"), units=s.get("engineeringUnits"),
+                 realUnitsLowAmount=s.get("engineeringUnitsLowAmount"), realUnitsHighAmount=s.get("engineeringUnitsHighAmount"), showOnGUI=s.get("showOnGUI")))
+            
 # print(channels[1].mA_to_EngineeringUnits(4.0))
 # print(channels[1].mA_to_EngineeringUnits(12.0))
 # print(channels[1].mA_to_EngineeringUnits(20.0))

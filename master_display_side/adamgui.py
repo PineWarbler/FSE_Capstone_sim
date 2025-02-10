@@ -1,9 +1,16 @@
 import customtkinter as ctk
 from tkdial import Meter
 
+from channel_definitions import Channel_Entries, Channel_Entry
+
+
+# load channel entries from config file
+my_channel_entries = Channel_Entries()
+my_channel_entries.load_from_config_file(config_file_path="config.json")
+
 # Configure the main application window
 app = ctk.CTk()
-app.title("ICS Phase I - Beta")
+app.title("ICS Phase II - Beta")
 app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
@@ -33,21 +40,21 @@ ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack
 # Analog Outputs
 ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16)).pack(pady=10)
 
-UVT Gauge
-uvt_frame = ctk.CTkFrame(analog_inputs_frame)
-uvt_frame.pack(pady=5)
-uvt_gauge = Meter(uvt_frame, scroll_steps=0, interactive=False, radius=100)
-uvt_gauge.set(50)
-uvt_gauge.pack()
-ctk.CTkLabel(uvt_frame, text="UVT").pack()
+# we'll need to keep references to the meter objects so we can update the meter readings
+ai_meter_objects = dict() # key:value = "IVT":<Meter obj>
+for name, ch_entry in my_channel_entries.channels.items():
 
-# IVT Gauge
-ivt_frame = ctk.CTkFrame(analog_inputs_frame)
-ivt_frame.pack(pady=5)
-ivt_gauge = Meter(ivt_frame, scroll_steps=0, interactive=False, radius=100)
-ivt_gauge.set(50)
-ivt_gauge.pack()
-ctk.CTkLabel(ivt_frame, text="IVT").pack()
+    if ch_entry.sig_type.lower() != "ai" or not ch_entry.showOnGUI:
+        continue
+    # UVT Gauge
+    meter_frame = ctk.CTkFrame(analog_inputs_frame)
+    meter_frame.pack(pady=5)
+    meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=200)
+    # meter.set(50)
+    meter.pack()
+    ctk.CTkLabel(meter_frame, text=f"{name} ({ch_entry.units})").pack()
+    ai_meter_objects[name] = meter
+
 saved_values = {}
 
 
@@ -106,12 +113,15 @@ def create_dropdown(parent, name):
     return frame
 
 # Create analog outputs with separate dropdowns and input fields
-units = {"DPT": "PSI", "SPT": "PSI", "MAT": "°C","OPT":"PSI"}
-for label in ["DPT", "SPT", "MAT","OPT"]:
+for name, ch_entry in my_channel_entries.channels.items():
+
+    if ch_entry.sig_type.lower() != "ao" or not ch_entry.showOnGUI:
+        continue
+        
     frame = ctk.CTkFrame(analog_outputs_frame)
     frame.pack(pady=5)
-
-    ctk.CTkLabel(frame, text=f"{label} ({units[label]})").grid(row=0, column=0, padx=5)
+    
+    ctk.CTkLabel(frame, text=f"{name} ({ch_entry.units})").grid(row=0, column=0, padx=5)
     input_value_entry = ctk.CTkEntry(frame, width=100)
     input_value_entry.grid(row=0, column=1, padx=5)
 
@@ -119,32 +129,39 @@ for label in ["DPT", "SPT", "MAT","OPT"]:
     current_label.grid(row=0, column=2, padx=10)
 
     save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue",
-                                     command=lambda n=label, e=input_value_entry, l=current_label: save_input_value(n, e, l))
+                                     command=lambda n=name, e=input_value_entry, l=current_label: save_input_value(n, e, l))
     save_text_button.grid(row=0, column=3, padx=5)
 
-    dropdown_frame = create_dropdown(analog_outputs_frame, label)
+    dropdown_frame = create_dropdown(analog_outputs_frame, name)
     arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame: toggle_dropdown(f))
     arrow_button.grid(row=0, column=4, padx=5)
 
-
+# digital outputs
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
-motor_status_switch = ctk.CTkSwitch(digital_outputs_frame, text="Motor Status", onvalue="ON", offvalue="OFF")
-motor_status_switch.pack(pady=10)
-motor_status_switch.select()
-ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
+for name, ch_entry in my_channel_entries.channels.items():
 
+    if ch_entry.sig_type.lower() != "do" or not ch_entry.showOnGUI:
+        continue
+    
+    motor_status_switch = ctk.CTkSwitch(digital_outputs_frame, text=ch_entry.name, onvalue="ON", offvalue="OFF")
+    motor_status_switch.pack(pady=10)
+    motor_status_switch.select()
+
+# Digital Inputs
 def toggle_light():
     indicator_light.configure(fg_color="green" if motor_status_switch.get() else "red")
+    
+ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
+for name, ch_entry in my_channel_entries.channels.items():
 
-indicator_frame = ctk.CTkFrame(digital_inputs_frame)
-indicator_frame.pack(pady=10)
-indicator_label = ctk.CTkLabel(indicator_frame, text="AOT")
-indicator_label.pack(side="left", padx=10)
-indicator_light = ctk.CTkLabel(indicator_frame, text="", width=20, height=20, corner_radius=10, fg_color="red")
-indicator_light.pack(side="left")
+    if ch_entry.sig_type.lower() != "di" or not ch_entry.showOnGUI:
+        continue
+
+    indicator_frame = ctk.CTkFrame(digital_inputs_frame)
+    indicator_frame.pack(pady=10)
+    indicator_label = ctk.CTkLabel(indicator_frame, text=ch_entry.name)
+    indicator_label.pack(side="left", padx=10)
+    indicator_light = ctk.CTkLabel(indicator_frame, text="", width=20, height=20, corner_radius=10, fg_color="red")
+    indicator_light.pack(side="left")
 # Run the app
 app.mainloop()
-
-# Run the app
-app.mainloop()
-
