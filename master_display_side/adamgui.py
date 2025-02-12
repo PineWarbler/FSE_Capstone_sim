@@ -113,6 +113,8 @@ def create_dropdown(parent, name):
     return frame
 
 # Create analog outputs with separate dropdowns and input fields
+# or whatever element of the row that will need to be updated with value
+ao_row_objects = dict() # key:value = "SPT":<Meter obj>
 for name, ch_entry in my_channel_entries.channels.items():
 
     if ch_entry.sig_type.lower() != "ao" or not ch_entry.showOnGUI:
@@ -127,6 +129,7 @@ for name, ch_entry in my_channel_entries.channels.items():
 
     current_label = ctk.CTkLabel(frame, text="Current Input: 4.00 mA")
     current_label.grid(row=0, column=2, padx=10)
+    ao_row_objects[name] = current_label
 
     save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue",
                                      command=lambda n=name, e=input_value_entry, l=current_label: save_input_value(n, e, l))
