@@ -50,13 +50,15 @@ class Channel_Entry:
         else:
             return "invalid sig type"
     
-    def _mA_to_EngineeringUnits(self, mA_val):
+    def mA_to_EngineeringUnits(self, mA_val):
+        ''' Only external call should be by the GUI. (otherwise, this method is should be private)'''
         if self.sig_type[0].lower() == "a":
             return ((mA_val-4.0) / (20.0 - 4.0)) * (self.realUnitsHighAmount - self.realUnitsLowAmount) + self.realUnitsLowAmount
         else:
             return None
     
-    def _EngineeringUnits_to_mA(self, engUnits):
+    def EngineeringUnits_to_mA(self, engUnits):
+        ''' Only external call should be by the GUI. (otherwise, this method is should be private)'''
         if self.sig_type[0].lower() == "a":
             return 4.0 + ((engUnits - self.realUnitsLowAmount) / (self.realUnitsHighAmount - self.realUnitsLowAmount)) * (20.0 - 4.0)
         elif self.sig_type[0].lower() == "d":

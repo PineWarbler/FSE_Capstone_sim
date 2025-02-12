@@ -204,7 +204,7 @@ class DataPacketModel:
         except ValueError:
             raise ValueError(f"Expected to find packet length as integer, but got `{built_msg_length}` instead")
             
-        print("msg_length is " + str(msg_length))
+        # print("msg_length is " + str(msg_length))
         
         data_str = remainder
         while len(data_str) < msg_length:
