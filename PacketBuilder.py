@@ -18,7 +18,9 @@ class dataEntry:
     e.g. "chType": "ai", gpio_str : "GPIO26", "val": 3.14, "time": 1735346511.9356625
     n.b. pass an integer as "val" if you want to send a binary digital signal (for digital inputs/outputs)
     '''
-    allowed_chTypes = ["ao", "ai", "do", "di"]
+    allowed_chTypes = ["ao", "ai", "do", "di", "in"] # `in` stands for indicator light--the pretty lights on outside of sim box
+    # even though `in` cannot be controlled by the master (instead controlled locally by RPi), we need this
+    # entry for the GUI to tell the RPi which board slot position its installed in
     
     def __init__(self, chType: str, gpio_str: str, val: Union[float, int], time: float = None):
         # chType must be one of ["ao", "ai", "do", "di"]

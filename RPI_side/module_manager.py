@@ -68,6 +68,11 @@ class Module_Manager:
             di_value = int(driverObj.readState())
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = di_value, time = time.time())
             errorResponse = None
+        # the "in" chtype is not controlled by packet data. The RPi locally controls the indicator lights, but
+        # we still need the GUI to tell the RPi which GPIO pin the lights are using
+        elif chType.lower() == "in": # indicator light
+            valueResponse = None
+            errorResponse = None
         else:
             valueResponse = None
             errorResponse = errorEntry(source = f"Module Manager", criticalityLevel = "Medium", description = f"Invalid channel type given {chType} for module at {gpio_str}.")
@@ -94,6 +99,8 @@ class Module_Manager:
         elif chType.lower() == "do":
             print(f"[module_manager.make_module_entry] created a relay channel object with gpio={self.gpio_manager.get_gpio(gpio_str)}") 
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
+        elif chType.lower() == "in":
+            driverObj = INDICATOR_LIGHT(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         else:
             driverObj = None
             warnings.warn(f"[module_manager] Invalid channel type {chType}")
