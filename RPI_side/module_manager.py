@@ -71,8 +71,15 @@ class Module_Manager:
         # the "in" chtype is not controlled by packet data. The RPi locally controls the indicator lights, but
         # we still need the GUI to tell the RPi which GPIO pin the lights are using
         elif chType.lower() == "in": # indicator light
+            # different indication modes: 2:blink rapidly, 1:solid on, 0:off
+            if val==2:
+                driverObj.setBlink(on_time=0.3, off_time=0.3)
+            elif val==1:
+                driverObj.turnOn()
+            elif val==0:
+                driverObj.turnOff()
             valueResponse = None
-            errorResponse = None
+            errorResponse = errorEntry(source = f"Module Manager", criticalityLevel = "Medium", description = f"The indicator light channel is reserved. Any commands from master will be ignored.")
         else:
             valueResponse = None
             errorResponse = errorEntry(source = f"Module Manager", criticalityLevel = "Medium", description = f"Invalid channel type given {chType} for module at {gpio_str}.")
@@ -99,7 +106,8 @@ class Module_Manager:
         elif chType.lower() == "do":
             print(f"[module_manager.make_module_entry] created a relay channel object with gpio={self.gpio_manager.get_gpio(gpio_str)}") 
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
-        elif chType.lower() == "in":
+        elif chType.lower() == "in": # this channel is not writable by the master. We include it here so that the 
+            # Pi can initialize it at its own startup
             driverObj = INDICATOR_LIGHT(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         else:
             driverObj = None
