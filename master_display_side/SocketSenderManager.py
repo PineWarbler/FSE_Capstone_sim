@@ -142,10 +142,14 @@ class SocketSenderManager:
             startRTT = time.time()
 
             # create a single-use socket
+            self.sock = socket.socket()
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) # tell TCP to send out data as soon as it arrives in its buffer
+            self.sock.settimeout(self.socketTimeout)
+            
             try:
-                self.sock = socket.create_connection((self.host, self.port), timeout=self.socketTimeout)
+                self.sock.connect((self.host, self.host))
             except Exception as e:
-                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Could establish a socket connection with {self.host} within timeout={self.socketTimeout} seconds. \n{e}", time=time.time()))
+                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Could not establish a socket connection with {self.host} within timeout={self.socketTimeout} seconds. \n{e}", time=time.time()))
                 self.logger.critical("_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
 
             self.sock.send(dpm_out.get_packet_as_string().encode())
