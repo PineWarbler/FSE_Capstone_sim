@@ -38,6 +38,8 @@ spi.max_speed_hz = 10000
 spi.no_cs
 
 my_module_manager = Module_Manager(spi = spi)
+indicator_gpio_str = "GPIO21"
+my_module_manager.make_module_entry(gpio_str=indicator_gpio_str, chType="in") # indicator light
         
 # --- functions ---
 
@@ -161,6 +163,7 @@ os.system(f"sudo ip addr add {host}/24 dev eth0")
 s = socket.socket()
 s.settimeout(5) # Set a timeout of n seconds for the accept() call
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # solution for "[Error 89] Address already in use". Use before bind()
+s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) # tell TCP to send out data as soon as it arrives in its buffer
 s.bind((host, port))
 s.listen(1)
 
@@ -171,6 +174,11 @@ all_threads = []
 gp = threading.Thread(target=commandQueueManager, args=(commandQueue, outQueue,), daemon=True)
 gp.start()
 all_threads.append(gp)
+
+
+# turn on the network status indicator
+# 2:blink rapidly, 1:solid on, 0:off
+_, _ = my_module_manager.execute_command(gpio_str = indicator_gpio_str, chType = "in", val = 1)
 
 shouldStop = False
 
