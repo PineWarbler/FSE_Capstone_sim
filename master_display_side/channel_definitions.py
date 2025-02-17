@@ -44,7 +44,7 @@ class Channel_Entry:
         # analog (mA) values are converted from engineering units to a mA value
         # digital values are left as 0 or 1
         if self.sig_type[0].lower() == "a":
-            return self._EngineeringUnits_to_mA(val)
+            return self.EngineeringUnits_to_mA(val)
         elif self.sig_type[0].lower() == "d":
             return int(val)
         else:
@@ -67,7 +67,7 @@ class Channel_Entry:
             return None
        
     def EngUnits_str(self, mA_val):
-        return f"{self._mA_to_EngineeringUnits(mA_val)} {self.units}"
+        return f"{self.mA_to_EngineeringUnits(mA_val)} {self.units}"
     
     
     def getGPIOStr(self):
@@ -111,6 +111,13 @@ class Channel_Entries:
         if ch is None:
             return None
         return ch.getGPIOStr_from_slotPosition(slotPosition = ch.boardSlotPosition)
+
+    def get_channelEntry_from_GPIOstr(self, gpio_str:str):
+        # used by the gui to retrieve the name of the signal
+        for k,v in self.channels.items():
+            if v.gpio == gpio_str:
+                return v
+        return None
     
     def getChannelEntry(self, sigName:str) -> Channel_Entry:
         return self.channels.get(sigName)

@@ -24,7 +24,7 @@ class SocketSenderManager:
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename='runtime.log', encoding='utf-8', level=logging.DEBUG)
 
-    def __init__(self, host:str, port:int, q: queue.Queue, socketTimeout:float=5, testSocketOnInit:bool=True): #, verbose=False
+    def __init__(self, host:str, port:int, q: queue.Queue, socketTimeout:float=5, testSocketOnInit:bool=True, startupLoopDelay:float=0.1): #, verbose=False
         '''
         An intermediary class that accepts signal commands from a GUI (use `place_single_dataEntry` or `place_ramp`)
         It will handle sending the commands as packets using its own instance of the CommandQueue class. Any responses
@@ -33,12 +33,16 @@ class SocketSenderManager:
         Also, this class will echo AO ramp steps back to the `q`--based on the currently-asserted entry, so that the GUI can show the
         current output value in mA.
 
+        if testSocketOnInit is True, this constructor will try to ping the host.
+        If the host responds, a network confirmation status message will be placed on `q`. Otherwise, will place an errorEntry.
+
         ARGS:
         host and port correspond to the RPi (192.168.80.1:5000). Any response data that this class receives from the RPi will be 
         placed on `q` and can be read by another process'''
         self.host = host
         self.port = port
         self.socketTimeout = socketTimeout
+        self.startupLoopDelay = startupLoopDelay
 
         self.qForGUI = q # a queue of errorEntries or dataEntries; 
         # stores data that should be available to the GUI (from RPI or error messages thrown by this class or echoes of sent ramp values)
@@ -50,14 +54,19 @@ class SocketSenderManager:
             if not respStatus:
                 self.qForGUI.put(errorEntry(source="Ethernet Socket", criticalityLevel="high", description=f"Could not receive ping response from {self.host}", time=time.time()))
             else:
+                self.qForGUI.put(dataEntry(chType="ao", gpio_str="SocketSenderManager is online", val=1, time=time.time()))
                 self.logger.info(f"testSocketOnInit received ping response. Ping delay was {int((end - start)*1000)} ms.")     
 
         self.endcqLoop = False # semaphore to tell _loopCommandQueue thread to stop
         self.theCommandQueue = CommandQueue() # a special class to manage timestamp-organized data entries sent to the Raspberry Pi
         self.mutex = Lock() # to ensure one-at-a time access to shared CommandQueue instance
         self.cqLoopThreadReference = threading.Thread(target=self._loopCommandQueue, daemon=True)
+        print(self.cqLoopThreadReference) # print the handle for debugging
         self.cqLoopThreadReference.start()
     
+    # def setThread(self, th):
+    #     self.cqLoopThreadReference = th
+    #     self.cqLoopThreadReference.start()
     def pingHost(self):
         """
         Returns True if host (str) responds to a ping request.
@@ -83,8 +92,7 @@ class SocketSenderManager:
             self.logger.info(f"place_ramp will assert negative step because step is {stepPerSecond} but stop={stop} and start={start}.")
         if start<ch2send.realUnitsLowAmount or stop>ch2send.realUnitsHighAmount:
             print("[ERROR] invalid start or end values")
-            self.logger.warning(f"place_ramp: Either start={start} or stop={stop} exceeded the lower or upper limit for {ch2send.name}, which are 
-            {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
+            self.logger.warning(f"place_ramp: Either start={start} or stop={stop} exceeded the lower or upper limit for {ch2send.name}, which are {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
             return False
         
         value_entries = np.arange(start=start, stop=stop, step=stepPerSecond)
@@ -104,7 +112,9 @@ class SocketSenderManager:
     def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> None:
         ''' use this method to put commands that are not raw mA values. Conversion from engineering units to mA values 
         will happen within this method's call to Channel_Entry.convert_to_packetUnits()'''
-        de = dataEntry(self, chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=ch2send.convert_to_packetUnits(val_in_eng_units), time=time.time())
+        if ch2send.getGPIOStr() is None:
+            raise ValueError(f"[technician] you don't have a gpio pin mapped to board slot {ch2send.boardSlotPosition}, even though the user requested {ch2send.name}")
+        de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=ch2send.convert_to_packetUnits(val_in_eng_units), time=time)
         with self.mutex:
             self.theCommandQueue.put(de)
         self.logger.info(f"place_single_EngineeringUnits: {de}")
@@ -129,6 +139,9 @@ class SocketSenderManager:
             with self.mutex:
                 outgoings = self.theCommandQueue.pop_all_due() # returns a list of dataEntry objects or an empty list
 
+            if self.startupLoopDelay>0: # the GUI freezes at first if this loop is run unchecked
+                time.sleep(self.startupLoopDelay)
+
             if len(outgoings) == 0:
                 continue
         
@@ -147,10 +160,11 @@ class SocketSenderManager:
             self.sock.settimeout(self.socketTimeout)
             
             try:
-                self.sock.connect((self.host, self.host))
+                self.sock.connect((self.host, self.port))
             except Exception as e:
                 self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Could not establish a socket connection with {self.host} within timeout={self.socketTimeout} seconds. \n{e}", time=time.time()))
                 self.logger.critical("_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
+                continue
 
             self.sock.send(dpm_out.get_packet_as_string().encode())
             dpm_catch = DataPacketModel.from_socket(self.sock)
@@ -158,11 +172,10 @@ class SocketSenderManager:
             self.sock.close()
             
             numErrors = dpm_catch.error_entries or 0 # sometimes returns None, in which case 0 errors
-            self.logger.info(f"_loopCommandQueue: received response from socket in {time.time() - startRTT:.2f} s 
-                             containing {len(dpm_catch.dataEntries)} entries and {numErrors} errors.")
+            self.logger.info(f"_loopCommandQueue: received response from socket in {time.time() - startRTT:.2f} s containing {len(dpm_catch.data_entries)} entries and {numErrors} errors.")
             
             # place the received entries onto the shared queue to be read by the gui
-            for de in dpm_catch.dataEntries:
+            for de in dpm_catch.data_entries:
                 self.qForGUI.put(de) # queues are thread-safe
             for i in range(0, numErrors):
                 self.qForGUI.put(dpm_catch.error_entries[i]) 
