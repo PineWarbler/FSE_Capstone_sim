@@ -55,6 +55,22 @@ ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack
 
 # Analog Outputs
 ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16)).pack(pady=10)
+canvas_frame = ctk.CTkFrame(analog_outputs_frame)
+canvas_frame.pack(fill="both", expand=True)
+
+DARK_GREY= "#333333"
+canvas = tk.Canvas(canvas_frame, bg=DARK_GREY)
+scrollbar = tk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+scrollable_frame = ctk.CTkFrame(canvas)
+
+scrollable_frame.bind(
+    "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+canvas.configure(yscrollcommand=scrollbar.set)
+
+canvas.pack(side="left", fill="both", expand=True)
+scrollbar.pack(side="right", fill="y")
 
 # we'll need to keep references to the meter objects so we can update the meter readings
 ai_meter_objects = dict() # key:value = "IVT":<Meter obj>
