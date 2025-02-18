@@ -1,25 +1,25 @@
 {
     "signals": [
         {
-            "name": "SPT",
+            "name": "DPT 1",
             "sig_type" : "ao",
             "boardSlotPosition" : 11,
-            "engineeringUnits" : "PSI",
-            "engineeringUnitsLowAmount" : 97.0,
-            "engineeringUnitsHighAmount" : 200.0,
-            "showOnGUI": true
-        },
-        {
-            "name": "DPT",
-            "sig_type" : "ao",
-            "boardSlotPosition" : 12,
             "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
         },
         {
-            "name": "MAT",
+            "name": "SPT 1",
+            "sig_type" : "ao",
+            "boardSlotPosition" : 12,
+            "engineeringUnits" : "PSI",
+            "engineeringUnitsLowAmount" : 97.0,
+            "engineeringUnitsHighAmount" : 200.0,
+            "showOnGUI": true
+        },
+        {
+            "name": "MAT 1",
             "sig_type" : "ao",
             "boardSlotPosition" : 13,
             "engineeringUnits" : "PSI",
@@ -28,7 +28,7 @@
             "showOnGUI": true
         },
         {
-            "name": "OPT",
+            "name": "DPT 2",
             "sig_type" : "ao",
             "boardSlotPosition" : 14,
             "engineeringUnits" : "PSI",
@@ -37,43 +37,43 @@
             "showOnGUI": true
         },
         {
-            "name": "IOT",
+            "name": "SPT 2",
             "sig_type" : "ao",
             "boardSlotPosition" : 15,
-            "engineeringUnits" : "°Celsius",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnits" : "PSI",
+            "engineeringUnitsLowAmount" : 97.0,
+            "engineeringUnitsHighAmount" : 200.0,
             "showOnGUI": true
         },
         {
-            "name": "LVT",
+            "name": "MAT 2",
             "sig_type" : "ao",
             "boardSlotPosition" : 16,
-            "engineeringUnits" : "°Celsius",
+            "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
         },
         {
-            "name": "HVT",
+            "name": "DPT 3",
             "sig_type" : "ao",
             "boardSlotPosition" : 21,
-            "engineeringUnits" : "°Celsius",
+            "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
         },
         {
-            "name": "IAT",
+            "name": "SPT 3",
             "sig_type" : "ao",
             "boardSlotPosition" : 22,
-            "engineeringUnits" : "°Celsius",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnits" : "PSI",
+            "engineeringUnitsLowAmount" : 97.0,
+            "engineeringUnitsHighAmount" : 200.0,
             "showOnGUI": true
         },
         {
-            "name": "SAPT",
+            "name": "MAT 3",
             "sig_type" : "ao",
             "boardSlotPosition" : 23,
             "engineeringUnits" : "PSI",
@@ -82,18 +82,9 @@
             "showOnGUI": true
         },
         {
-            "name": "IOT",
-            "sig_type" : "ao",
-            "boardSlotPosition" : 24,
-            "engineeringUnits" : "°Celsius",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
-            "showOnGUI": true
-        },
-        {
-            "name": "UVT",
+            "name": "UVT 1",
             "sig_type" : "ai",
-            "boardSlotPosition" : 25,
+            "boardSlotPosition" : 24,
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
@@ -101,7 +92,7 @@
             "autoPollFrequency" : 1
         },
         {
-            "name": "IVT",
+            "name": "IVT 1",
             "sig_type" : "ai",
             "boardSlotPosition" : 25,
             "engineeringUnits" : "%",
@@ -111,9 +102,49 @@
             "autoPollFrequency" : 1
         },
         {
+            "name": "UVT 2",
+            "sig_type" : "ai",
+            "boardSlotPosition" : 26,
+            "engineeringUnits" : "%",
+            "engineeringUnitsLowAmount" : 100.0,
+            "engineeringUnitsHighAmount" : 0.0,
+            "showOnGUI": false,
+            "autoPollFrequency" : 1
+        },
+        {
+            "name": "IVT 2",
+            "sig_type" : "ai",
+            "boardSlotPosition" : 31,
+            "engineeringUnits" : "%",
+            "engineeringUnitsLowAmount" : 0.0,
+            "engineeringUnitsHighAmount" : 100.0,
+            "showOnGUI": false,
+            "autoPollFrequency" : 1
+        },
+        {
+            "name": "UVT 3",
+            "sig_type" : "ai",
+            "boardSlotPosition" : 32,
+            "engineeringUnits" : "%",
+            "engineeringUnitsLowAmount" : 100.0,
+            "engineeringUnitsHighAmount" : 0.0,
+            "showOnGUI": false,
+            "autoPollFrequency" : 1
+        },
+        {
+            "name": "IVT 3",
+            "sig_type" : "ai",
+            "boardSlotPosition" : 33,
+            "engineeringUnits" : "%",
+            "engineeringUnitsLowAmount" : 0.0,
+            "engineeringUnitsHighAmount" : 100.0,
+            "showOnGUI": false,
+            "autoPollFrequency" : 1
+        },
+        {
             "name": "AOP",
             "sig_type" : "di",
-            "boardSlotPosition" : 26,
+            "boardSlotPosition" : 34,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
@@ -123,7 +154,7 @@
         {
             "name": "Motor Status",
             "sig_type" : "do",
-            "boardSlotPosition" : 31,
+            "boardSlotPosition" : 35,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
@@ -134,7 +165,7 @@
         {
             "name": "Pi Networking Status",
             "sig_type" : "do",
-            "boardSlotPosition" : 32,
+            "boardSlotPosition" : 36,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
