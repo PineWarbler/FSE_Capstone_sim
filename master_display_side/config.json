@@ -40,7 +40,7 @@
             "name": "IOT",
             "sig_type" : "ao",
             "boardSlotPosition" : 15,
-            "engineeringUnits" : "Celsius",
+            "engineeringUnits" : "°Celsius",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
@@ -49,7 +49,7 @@
             "name": "LVT",
             "sig_type" : "ao",
             "boardSlotPosition" : 16,
-            "engineeringUnits" : "Celsius",
+            "engineeringUnits" : "°Celsius",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
@@ -58,7 +58,7 @@
             "name": "HVT",
             "sig_type" : "ao",
             "boardSlotPosition" : 21,
-            "engineeringUnits" : "Celsius",
+            "engineeringUnits" : "°Celsius",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
@@ -67,7 +67,7 @@
             "name": "IAT",
             "sig_type" : "ao",
             "boardSlotPosition" : 22,
-            "engineeringUnits" : "Celsius",
+            "engineeringUnits" : "°Celsius",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
@@ -85,7 +85,7 @@
             "name": "IOT",
             "sig_type" : "ao",
             "boardSlotPosition" : 24,
-            "engineeringUnits" : "Celsius",
+            "engineeringUnits" : "°Celsius",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
