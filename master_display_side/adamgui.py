@@ -56,22 +56,9 @@ analog_outputs_label.pack(pady=10)
 
 ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack(pady=10)
 
-canvas_frame = ctk.CTkFrame(analog_outputs_frame)
-canvas_frame.pack(fill="both", expand=True)
+scrollable_frame = ctk.CTkScrollableFrame(master=analog_outputs_frame)
+scrollable_frame.pack(fill="both", expand=True)
 
-DARK_GREY= "#333333"
-canvas = tk.Canvas(canvas_frame, bg=DARK_GREY)
-scrollbar = tk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
-scrollable_frame = ctk.CTkFrame(canvas)
-
-scrollable_frame.bind(
-    "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-canvas.configure(yscrollcommand=scrollbar.set)
-
-canvas.pack(side="left", fill="both", expand=True)
-scrollbar.pack(side="right", fill="y")
 
 # we'll need to keep references to the meter objects so we can update the meter readings
 ai_meter_objects = dict() # key:value = "IVT":<Meter obj>
@@ -91,11 +78,14 @@ for name, ch_entry in my_channel_entries.channels.items():
 saved_values = {}
 
 
-def toggle_dropdown(frame, parent_frame):
+def toggle_dropdown(frame,parent_frame,sendBtn):
     if frame.winfo_ismapped():
+        sendBtn.configure(state="normal")
         frame.pack_forget()
     else:
-        frame.pack(side="right", padx=5, pady=5)
+        frame.pack(after=parent_frame, pady=5)
+        current_dropdown = frame
+        sendBtn.configure(state="disabled")
 
 def save_range_values(name, start_entry, end_entry, rate_entry, frame):
     start = float(start_entry.get()) if start_entry.get() else 0
@@ -141,6 +131,7 @@ def create_dropdown(parent, name):
     ctk.CTkButton(button_frame, text="Save", fg_color="blue",
                   command=lambda: save_range_values(name, start_entry, end_entry, rate_entry, frame)).pack(side="left", padx=5)
 
+    # disabled because cancel would need to toggle the active state of the send button, but we don't have scope access to that btn obj
     ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda: frame.pack_forget()).pack(side="left", padx=5)
 
     return frame
@@ -157,8 +148,9 @@ for name, ch_entry in my_channel_entries.channels.items():
     if ch_entry.sig_type.lower() != "ao" or not ch_entry.showOnGUI:
         continue
     frame = ctk.CTkFrame(scrollable_frame)
-    frame.pack(pady=5)
-    ctk.CTkLabel(frame, text=f"{name}").grid(row=0, column=0, padx=5)
+    frame.pack(pady=5, fill='x')
+    # frame.pack(side="left")
+    ctk.CTkLabel(frame, text=f"{name}").grid(row=0, column=0, padx=5, sticky="w")
     input_value_entry = ctk.CTkEntry(frame, width=100)
     input_value_entry.grid(row=0, column=1, padx=5)
     # unitSelector = 
@@ -177,7 +169,7 @@ for name, ch_entry in my_channel_entries.channels.items():
     save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue")
     save_text_button.grid(row=0, column=3, padx=5)
     dropdown_frame = create_dropdown(scrollable_frame, name)
-    arrow_button = ctk.CTkButton(frame, text="➡", width=20, command=lambda f=dropdown_frame, p=frame: toggle_dropdown(f, p))
+    arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame, p=frame, b=save_text_button: toggle_dropdown(f, p, b))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
 
