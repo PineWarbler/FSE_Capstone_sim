@@ -91,12 +91,11 @@ for name, ch_entry in my_channel_entries.channels.items():
 saved_values = {}
 
 
-def toggle_dropdown(frame,parent_frame):
+def toggle_dropdown(frame, parent_frame):
     if frame.winfo_ismapped():
         frame.pack_forget()
     else:
-        frame.pack(after=parent_frame, pady=5)
-        current_dropdown = frame
+        frame.pack(side="right", padx=5, pady=5)
 
 def save_range_values(name, start_entry, end_entry, rate_entry, frame):
     start = float(start_entry.get()) if start_entry.get() else 0
@@ -149,7 +148,7 @@ def create_dropdown(parent, name):
 def place_single(name:str, entry):
     val = float(entry.get())
     print(f"name is {name}, entry is {val}")
-    SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
+    # SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
 
 # Create analog outputs with separate dropdowns and input fields
 # or whatever element of the row that will need to be updated with value
@@ -159,15 +158,26 @@ for name, ch_entry in my_channel_entries.channels.items():
         continue
     frame = ctk.CTkFrame(scrollable_frame)
     frame.pack(pady=5)
-    ctk.CTkLabel(frame, text=f"{name} ({ch_entry.units})").grid(row=0, column=0, padx=5)
+    ctk.CTkLabel(frame, text=f"{name}").grid(row=0, column=0, padx=5)
     input_value_entry = ctk.CTkEntry(frame, width=100)
     input_value_entry.grid(row=0, column=1, padx=5)
-    current_label = ctk.CTkLabel(frame, text="4.00 mA")
-    current_label.grid(row=0, column=2, padx=10)
-    save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, l=current_label: save_input_value(n, e, l))
+    # unitSelector = 
+    
+    unitSelector = ctk.CTkSegmentedButton(frame, values=[f"{ch_entry.units}", "mA"], selected_color="green", selected_hover_color="green")# , command=segmented_button_callback)
+    unitSelector.set(f"{ch_entry.units}")
+    # unitSelector = ctk.CTkTabview(frame, width=0, height=0)
+    unitSelector.grid(row=0, column=2, padx=5)
+
+    # unitSelector.add(f"{ch_entry.units}")
+    # unitSelector.add("mA")
+    
+    # current_label = ctk.CTkLabel(frame, text="4.00 mA")
+    # current_label.grid(row=0, column=2, padx=10)
+    # save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, l=current_label: save_input_value(n, e, l))
+    save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue")
     save_text_button.grid(row=0, column=3, padx=5)
     dropdown_frame = create_dropdown(scrollable_frame, name)
-    arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame, p=frame: toggle_dropdown(f, p))
+    arrow_button = ctk.CTkButton(frame, text="➡", width=20, command=lambda f=dropdown_frame, p=frame: toggle_dropdown(f, p))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
 
