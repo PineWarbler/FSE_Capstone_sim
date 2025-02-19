@@ -13,6 +13,7 @@ from module_drivers.T_Click_2 import T_CLICK_2
 from module_drivers.Digital_Input_Module import Digital_Input_Module
 from module_drivers.R_Click import R_CLICK
 from module_drivers.Relay_Channel import RELAY_CHANNEL
+from module_drivers.Indicator_Light import INDICATOR_LIGHT
 
 class Module_Manager:
     # maintain a list of modules (e.g. R_CLICK, COMPARATOR_CLICK)
@@ -108,7 +109,7 @@ class Module_Manager:
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "in": # this channel is not writable by the master. We include it here so that the 
             # Pi can initialize it at its own startup
-            driverObj = INDICATOR_LIGHT(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
+            driverObj = INDICATOR_LIGHT(led_pin = self.gpio_manager.get_gpio(gpio_str))
         else:
             driverObj = None
             warnings.warn(f"[module_manager] Invalid channel type {chType}")
