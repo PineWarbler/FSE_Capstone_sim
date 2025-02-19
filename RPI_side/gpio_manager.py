@@ -32,6 +32,8 @@ class GPIO_Manager:
             # TODO: remove this pullup from initialization when we've implemented hardware pullup resistors for the T2's CS line
             # self.gpio_dict[gpio_str] = gpiozero.DigitalOutputDevice(pin=gpio_str, pull_up=True)
             # ok. DigitalOutput devices cannot be configured to have a pullup resistor. Will have to settle for inital_value=1
+        elif chType.lower() == "in":
+            self.gpio_dict[gpio_str] = gpiozero.LED(gpio_str, active_high=True, initial_value=False)
         else:
             self.gpio_dict[gpio_str] = gpiozero.DigitalOutputDevice(pin = gpio_str, initial_value = bool(1))
     

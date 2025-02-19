@@ -38,7 +38,7 @@ spi.max_speed_hz = 10000
 spi.no_cs
 
 my_module_manager = Module_Manager(spi = spi)
-indicator_gpio_str = "GPIO21"
+indicator_gpio_str = "GPIO12"
 my_module_manager.make_module_entry(gpio_str=indicator_gpio_str, chType="in") # indicator light
         
 # --- functions ---
@@ -126,7 +126,7 @@ def commandQueueManager(commandQueue, outQueue):
                     else:
                         # populate with an ack response
                         with mutex:
-                            outQueue.append(dataEntry(chType = "ao", gpio_str = "ack", val = 0, time = time.time())) # chtype as ao to avoid error raised by dataEntry class
+                            outQueue.append(dataEntry(chType = f"{de.chType}", gpio_str = de.gpio_str, val = de.val, time = time.time())) # chtype as ao to avoid error raised by dataEntry class
 
                     
                 
