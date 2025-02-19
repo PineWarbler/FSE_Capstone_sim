@@ -12,7 +12,7 @@ import time
 import numpy as np # for generating the ramp vectors
 import queue
 
-# libraries required to perform network ping
+# libraries required to perform network pingf
 import platform    # For getting the operating system name
 import subprocess  # For executing a shell command
 
@@ -122,7 +122,7 @@ class SocketSenderManager:
     def place_single_mA(self, ch2send : Channel_Entry, mA_val : float, time : float) -> None:
         # !!!!!!!!!! Use only for analog outputs!!!!!!
         # Engineering units to mA conversion happens on the master side. RPi receives only mA values.
-        de = dataEntry(self, chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=mA_val, time=time.time())
+        de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=mA_val, time=time)
         with self.mutex:
             self.theCommandQueue.put(de)
         self.logger.info(f"place_single_mA: {de}")
@@ -147,8 +147,8 @@ class SocketSenderManager:
         
             # echo back outgoing commands to the queue. In practice, only ramped AO signals are of interest--to show the operator that
             # the requested ramp command is successfully running
-            for el in outgoings:
-                self.qForGUI.put(el)
+            # for el in outgoings:
+                # self.qForGUI.put(el)
 
             dpm_out = DataPacketModel(dataEntries = outgoings, msg_type = "d", error_entries = None, time = time.time())
 
@@ -163,7 +163,7 @@ class SocketSenderManager:
                 self.sock.connect((self.host, self.port))
             except Exception as e:
                 self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Could not establish a socket connection with {self.host} within timeout={self.socketTimeout} seconds. \n{e}", time=time.time()))
-                self.logger.critical("_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
+                self.logger.critical(f"_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
                 continue
 
             self.sock.send(dpm_out.get_packet_as_string().encode())

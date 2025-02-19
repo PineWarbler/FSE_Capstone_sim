@@ -9,18 +9,15 @@ os.chdir('../') #equivalent to %cd ../ # go to parent folder
 from PacketBuilder import dataEntry, errorEntry, DataPacketModel
 os.chdir('./master_display_side') #equivalent to %cd tests # return to base dir
 from channel_definitions import Channel_Entries, Channel_Entry
-# from SocketSenderManager import SocketSenderManager
+from SocketSenderManager import SocketSenderManager
 
 # load channel entries from config file
 my_channel_entries = Channel_Entries()
 my_channel_entries.load_from_config_file(config_file_path="config.json")
 
-# socketRespQueue = queue.Queue() # will contain responses from the RPi
-# SSM = SocketSenderManager(host="192.168.80.1", port=5000,
-#                           q=socketRespQueue, socketTimeout=1.5, testSocketOnInit=False, startupLoopDelay=1)
-# bth = threading.Thread(target=SSM._loopCommandQueue, daemon=True)
-# SSM.setThread(th=bth)
-# SSM.cqLoopThreadReference.start()
+socketRespQueue = queue.Queue() # will contain responses from the RPi
+SSM = SocketSenderManager(host="192.168.80.1", port=5000,
+                          q=socketRespQueue, socketTimeout=5, testSocketOnInit=False, startupLoopDelay=1)
 # # we will call this object's methods: `place_ramp`, `place_single_mA`, and `place_single_EngineeringUnits`
 # # to send commands to the RPi
 
@@ -42,7 +39,7 @@ analog_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 analog_outputs_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
 analog_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
-analog_inputs_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+analog_inputs_frame.grid(row=0, column=1, padx=10, pady=10, sticky="ne")
 
 digital_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 digital_outputs_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
@@ -58,7 +55,7 @@ ai_label = ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial"
 ai_label.grid(row=0, column=0, pady=10, sticky="nsew")
 
 
-scrollable_frame = ctk.CTkScrollableFrame(master=analog_outputs_frame)
+scrollable_frame = ctk.CTkScrollableFrame(master=analog_outputs_frame, width=500)
 scrollable_frame.pack(fill="both", expand=True)
 
 
@@ -155,10 +152,18 @@ def create_dropdown(parent, name):
 
     return frame
 
-def place_single(name:str, entry):
+def place_single(name:str, entry, segmentedUnitButton):
     val = float(entry.get())
-    print(f"name is {name}, entry is {val}")
-    # SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
+    unit = str(segmentedUnitButton.get())
+    print(f"[place_single] name is {name}, entry is {val}, unit is {unit}")
+    if unit == "mA":
+        SSM.place_single_mA(ch2send=my_channel_entries.getChannelEntry(sigName=name), mA_val=float(val), time=time.time())
+    else:
+        SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
+    entry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
+
+def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
+    pass
 
 # Create analog outputs with separate dropdowns and input fields
 # or whatever element of the row that will need to be updated with value
@@ -184,14 +189,26 @@ for name, ch_entry in my_channel_entries.channels.items():
     
     # current_label = ctk.CTkLabel(frame, text="4.00 mA")
     # current_label.grid(row=0, column=2, padx=10)
-    # save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, l=current_label: save_input_value(n, e, l))
-    save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue")
+    save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, s=unitSelector: place_single(n, e, s))
+    # save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda )
     save_text_button.grid(row=0, column=3, padx=5)
     dropdown_frame = create_dropdown(scrollable_frame, name)
     arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame, p=frame, b=save_text_button: toggle_dropdown(f, p, b))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
+    
+    lastSentLabel = ctk.CTkLabel(frame, text="") # initialize empty at first
+    lastSentLabel.grid(row=0, column=5, padx=5, sticky="e")
+    ao_label_objects[name] = lastSentLabel
 
+def toggleDOswitch(name:str, ctkSwitch):
+    val = ctkSwitch.get()
+    SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
+    if ctkSwitch.state == "normal":
+        ctkSwitch.configure(state="disabled")
+    else:
+        ctkSwitch.configure(state="normal")
+        
 # digital outputs
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
 for name, ch_entry in my_channel_entries.channels.items():
@@ -199,7 +216,8 @@ for name, ch_entry in my_channel_entries.channels.items():
     if ch_entry.sig_type.lower() != "do" or not ch_entry.showOnGUI:
         continue
 
-    motor_status_switch = ctk.CTkSwitch(digital_outputs_frame,  text=ch_entry.name, onvalue="ON", offvalue="OFF")
+    motor_status_switch = ctk.CTkSwitch(digital_outputs_frame, text=ch_entry.name, onvalue=1, offvalue=0)
+    motor_status_switch.configure(command = lambda n=name, switchObj=motor_status_switch: toggleDOswitch(n, motor_status_switch))
     motor_status_switch.pack(pady=10)
     motor_status_switch.select()
 
@@ -223,52 +241,64 @@ for name, ch_entry in my_channel_entries.channels.items():
     indicator_light.pack(side="left")
 
 
-# def process_queue():
-#     while not socketRespQueue.empty():
-#         sockResp = socketRespQueue.get() # could be a dataEntry or an errorEntry
-#         print(f"sockResp (might be echoed by SSM).is {sockResp}")
-#         if isinstance(sockResp, dataEntry):
-#             if sockResp.gpio_str == "SocketSenderManager is online":
-#                 # TODO: online status gui element?
-#                 continue
-#
-#             chEntry = my_channel_entries.get_channelEntry_from_GPIOstr(sockResp.gpio_str)
-#             if chEntry is None:
-#                 if sockResp.gpio_str == "ack":
-#                     print("received ack packet")
-#                 continue
-#
-#             if chEntry.sig_type.lower() == "ai":
-#                 meterObj = ai_meter_objects[chEntry.name]
-#                 meterObj.set(chEntry.mA_to_EngineeringUnits(sockResp.val)) # move needle on meter
-#             elif chEntry.sig_type.lower() == "di":
-#                 if int(sockResp.val) == 1:
-#                     di_label_objects[chEntry.name].fg_color = "green"
-#                 else:
-#                     di_label_objects[chEntry.name].fg_color = "red"
-#
-#         elif isinstance(sockResp, errorEntry):
-#             print(f"received error entry: {sockResp}")
-#             # pass
-#
-#     # TODO: finally, place read periodic read requests for ai and di channels
-#     for name,meter in ai_meter_objects.items():
-#         # only the ch2send name is important. value can be whatever
-#         ch = my_channel_entries.getChannelEntry(name)
-#         if ch.getGPIOStr() is None:
-#             pass # print("invalid gpio config?")
-#         else:
-#             print(f"channel is {ch}")
-#             SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
-#     # this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
-#     # for name,label_obj in di_label_objects.items():
-#     # SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())
-#
-#     app.after(100, process_queue)  # Check queue again after 100ms
-#
-# # print("after defined process_queue")
-# app.after(0, func=process_queue)
-# SSM.startupLoopDelay=0.1
-# print(f"for tkinter file: {threading.current_thread()}")
+def process_queue():
+    while not socketRespQueue.empty():
+        sockResp = socketRespQueue.get() # could be a dataEntry or an errorEntry
+        print(f"sockResp is {sockResp}")
+        if isinstance(sockResp, dataEntry):
+            if sockResp.gpio_str == "SocketSenderManager is online":
+                # TODO: online status gui element?
+                continue
+
+            chEntry = my_channel_entries.get_channelEntry_from_GPIOstr(sockResp.gpio_str)
+            if chEntry is None:
+                if sockResp.gpio_str == "ack":
+                    print("received ack packet")
+                continue
+
+            if chEntry.sig_type.lower() == "ai":
+                meterObj = ai_meter_objects[chEntry.name]
+                meterObj.set(chEntry.mA_to_EngineeringUnits(sockResp.val)) # move needle on meter
+            elif chEntry.sig_type.lower() == "di":
+                if int(sockResp.val) == 1:
+                    di_label_objects[chEntry.name].configure(fg_color = "green")
+                else:
+                    di_label_objects[chEntry.name].configure(fg_color = "red")
+            elif chEntry.sig_type.lower() == "do":
+                # then the response is ack from RPI
+                print("empty branch for do")
+            elif "ao" in chEntry.sig_type.lower(): # response is like "ao ack"
+                # then the response is ack from RPI
+                labelObj = ao_label_objects.get(chEntry.name)
+                # labelObj.text = 
+                labelObj.configure(text=f"{sockResp.val:.{1}f} mA")
+                print(f"updated label to {sockResp.val} mA")
+                # labelObj.text_color = "green"
+                
+        elif isinstance(sockResp, errorEntry):
+            print(f"received error entry: {sockResp}")
+            # pass
+
+    # TODO: finally, place read periodic read requests for ai and di channels
+    for name,meter in ai_meter_objects.items():
+        # only the ch2send name is important. value can be whatever
+        ch = my_channel_entries.getChannelEntry(name)
+        if ch.getGPIOStr() is None:
+            pass # print("invalid gpio config?")
+        else:
+            # pass
+            print(f"auto-placing read request for {ch.name}")
+            SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
+            
+    # this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
+    # for name,label_obj in di_label_objects.items():
+    # SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())
+
+    app.after(500, process_queue)  # Check queue again after 100ms
+
+# print("after defined process_queue")
+app.after(0, func=process_queue)
+SSM.startupLoopDelay=0.1
+print(f"for tkinter file: {threading.current_thread()}")
 # Run the app
 app.mainloop()
