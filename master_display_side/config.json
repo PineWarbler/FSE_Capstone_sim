@@ -3,10 +3,10 @@
         {
             "name": "DPT 1",
             "sig_type" : "ao",
-            "boardSlotPosition" : 11,
+            "boardSlotPosition" : 24,
             "engineeringUnits" : "PSI",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnitsLowAmount" : 100,
+            "engineeringUnitsHighAmount" : 200,
             "showOnGUI": true
         },
         {
@@ -22,9 +22,9 @@
             "name": "MAT 1",
             "sig_type" : "ao",
             "boardSlotPosition" : 13,
-            "engineeringUnits" : "PSI",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnits" : "Amps",
+            "engineeringUnitsLowAmount" : 145,
+            "engineeringUnitsHighAmount" : 300,
             "showOnGUI": true
         },
         {
@@ -32,8 +32,8 @@
             "sig_type" : "ao",
             "boardSlotPosition" : 14,
             "engineeringUnits" : "PSI",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnitsLowAmount" : 100,
+            "engineeringUnitsHighAmount" : 200,
             "showOnGUI": true
         },
         {
@@ -49,7 +49,7 @@
             "name": "MAT 2",
             "sig_type" : "ao",
             "boardSlotPosition" : 16,
-            "engineeringUnits" : "PSI",
+            "engineeringUnits" : "Amps",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
             "showOnGUI": true
@@ -59,8 +59,8 @@
             "sig_type" : "ao",
             "boardSlotPosition" : 21,
             "engineeringUnits" : "PSI",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnitsLowAmount" : 100,
+            "engineeringUnitsHighAmount" : 200,
             "showOnGUI": true
         },
         {
@@ -76,15 +76,15 @@
             "name": "MAT 3",
             "sig_type" : "ao",
             "boardSlotPosition" : 23,
-            "engineeringUnits" : "PSI",
-            "engineeringUnitsLowAmount" : -99,
-            "engineeringUnitsHighAmount" : -1,
+            "engineeringUnits" : "Amps",
+            "engineeringUnitsLowAmount" : 145,
+            "engineeringUnitsHighAmount" : 300,
             "showOnGUI": true
         },
         {
             "name": "UVT 1",
             "sig_type" : "ai",
-            "boardSlotPosition" : 24,
+            "boardSlotPosition" : 11,
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
