@@ -54,7 +54,9 @@ digital_inputs_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, stick
 analog_outputs_label = ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16))
 analog_outputs_label.pack(pady=10)
 
-ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16)).pack(pady=10)
+ai_label = ctk.CTkLabel(analog_inputs_frame, text="Analog Inputs", font=("Arial", 16))#.pack(pady=10)
+ai_label.grid(row=0, column=0, pady=10, sticky="nsew")
+
 
 scrollable_frame = ctk.CTkScrollableFrame(master=analog_outputs_frame)
 scrollable_frame.pack(fill="both", expand=True)
@@ -62,19 +64,36 @@ scrollable_frame.pack(fill="both", expand=True)
 
 # we'll need to keep references to the meter objects so we can update the meter readings
 ai_meter_objects = dict() # key:value = "IVT":<Meter obj>
+
+currCol = 0
+currRow = 0
+numInCurrCol=0
 for name, ch_entry in my_channel_entries.channels.items():
 
     if ch_entry.sig_type.lower() != "ai" or not ch_entry.showOnGUI:
         continue
     # UVT Gauge
     meter_frame = ctk.CTkFrame(analog_inputs_frame)
-    meter_frame.pack(pady=5)
+    # currRow + 1 because first row is reserved for AI frame label
+    meter_frame.grid(column=currCol, row=currRow+1, padx=10, pady=0, sticky="nsew")
+    print(f"row,col={currRow},{currCol}")
     meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=200)
-    # meter.set(50)
-    meter.pack()
-    ctk.CTkLabel(meter_frame, text=f"{name} ({ch_entry.units})").pack()
-    ai_meter_objects[name] = meter
+    
+    
+    meter.grid(row=0,column=0, padx=10, pady=10, sticky="nsew")
 
+    l = ctk.CTkLabel(meter_frame, text=f"{name} ({ch_entry.units})")
+    l.grid(row=1, column=0, pady=10, sticky="s")
+    ai_meter_objects[name] = meter
+    
+    numInCurrCol += 1
+    currRow = (currRow + 1)%2
+    
+    if numInCurrCol == 2:
+        numInCurrCol = 0
+        currCol +=1
+    
+    
 saved_values = {}
 
 

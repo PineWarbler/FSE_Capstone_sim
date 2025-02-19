@@ -108,7 +108,7 @@
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
-            "showOnGUI": false,
+            "showOnGUI": true,
             "autoPollFrequency" : 1
         },
         {
@@ -118,7 +118,7 @@
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 0.0,
             "engineeringUnitsHighAmount" : 100.0,
-            "showOnGUI": false,
+            "showOnGUI": true,
             "autoPollFrequency" : 1
         },
         {
@@ -128,7 +128,7 @@
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
-            "showOnGUI": false,
+            "showOnGUI": true,
             "autoPollFrequency" : 1
         },
         {
@@ -138,7 +138,7 @@
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 0.0,
             "engineeringUnitsHighAmount" : 100.0,
-            "showOnGUI": false,
+            "showOnGUI": true,
             "autoPollFrequency" : 1
         },
         {
