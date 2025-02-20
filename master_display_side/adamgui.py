@@ -131,29 +131,30 @@ def create_dropdown(parent, name):
 
     ddminLabel = ctk.CTkLabel(frame, text="Minimum Value")
     ddminLabel.pack()
-    start_entry = ctk.CTkEntry(frame, width=100)
-    start_entry.pack()
+    ddminEntry = ctk.CTkEntry(frame, width=100)
+    ddminEntry.pack()
 
     ddmaxLabel = ctk.CTkLabel(frame, text="Maximum Value")
     ddmaxLabel.pack()
-    end_entry = ctk.CTkEntry(frame, width=100)
-    end_entry.pack()
+    ddmaxEntry = ctk.CTkEntry(frame, width=100)
+    ddmaxEntry.pack()
 
     ddrateLabel = ctk.CTkLabel(frame, text="Rate")
     ddrateLabel.pack()
-    rate_entry = ctk.CTkEntry(frame, width=100)
-    rate_entry.pack()
+    ddrateEntry = ctk.CTkEntry(frame, width=100)
+    ddrateEntry.pack()
 
     button_frame = ctk.CTkFrame(frame)
     button_frame.pack(pady=5)
 
-    ctk.CTkButton(button_frame, text="Save", fg_color="blue",
-                  command=lambda: save_range_values(name, start_entry, end_entry, rate_entry, frame)).pack(side="left", padx=5)
+    sendBtn = ctk.CTkButton(button_frame, text="Save", fg_color="blue")# ,
+                #   command=lambda: save_range_values(name, start_entry, end_entry, rate_entry, frame))
+    sendBtn.pack(side="left", padx=5)
 
     # disabled because cancel would need to toggle the active state of the send button, but we don't have scope access to that btn obj
     ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda: frame.pack_forget()).pack(side="left", padx=5)
 
-    return [frame, ddminLabel, ddmaxLabel, ddrateLabel]
+    return [frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn]
 
 def place_single(name:str, entry, segmentedUnitButton):
     val = float(entry.get())
@@ -166,7 +167,23 @@ def place_single(name:str, entry, segmentedUnitButton):
     entry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
 
 def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
-    pass
+    startVal = float(startEntry.get())
+    stopVal = float(stopEntry.get())
+    rateVal = float(rateEntry.get())
+    unit = str(segmentedUnitButton.get())
+    chEntry = my_channel_entries.getChannelEntry(sigName=name)
+    # print(f"[place_ramp] name is {name}, entry is {val}, unit is {unit}")
+    if unit != "mA": # convert to mA if not already
+        startVal = chEntry.EngineeringUnits_to_mA(startVal)
+        stopVal = chEntry.EngineeringUnits_to_mA(stopVal)
+        rateVal = chEntry.EngineeringUnits_to_mA(rateVal)
+    
+    success = SSM.place_ramp(ch2send=chEntry, start_mA=startVal, stop_mA=stopVal, stepPerSecond_mA=rateVal)
+    if success:
+        startEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
+        stopEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
+        rateEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
+        
 
 def segmented_button_callback(unit, dminLabel, dmaxLabel, drateLabel):
     # print(f"unit is {unit}")
@@ -193,14 +210,18 @@ for name, ch_entry in my_channel_entries.channels.items():
     save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, s=unitSelector: place_single(n, e, s))
     save_text_button.grid(row=0, column=3, padx=5)
     
-    dropdown_frame, ddmin, ddmax, ddrate = create_dropdown(scrollable_frame, name)
+    dropdown_frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn = create_dropdown(scrollable_frame, name)
+    # dropdown_frame, ddmin, ddmax, ddrate, sendBtn = create_dropdown(scrollable_frame, name)
     arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame, p=frame, b=save_text_button: toggle_dropdown(f, p, b))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
     
+    # dropdown menu send ramp command
+    sendBtn.configure(command=lambda n=name, dmin=ddminEntry, dmax=ddmaxEntry, drate=ddrateEntry, us=unitSelector: place_ramp(n, dmin, dmax, drate, us))
     
-    unitSelector.configure(command = lambda unit=unitSelector.get(), dmin=ddmin, dmax=ddmax, drate=ddrate: segmented_button_callback(unit,dmin,dmax,drate))
-    segmented_button_callback(ch_entry.units, ddmin, ddmax, ddrate) # set default units to engineering
+    
+    unitSelector.configure(command = lambda unit=unitSelector.get(), dmin=ddminLabel, dmax=ddmaxLabel, drate=ddrateLabel: segmented_button_callback(unit,dmin,dmax,drate))
+    segmented_button_callback(ch_entry.units, ddminLabel, ddmaxLabel, ddrateLabel) # set default units to engineering
     unitSelector.set(f"{ch_entry.units}")
     unitSelector.grid(row=0, column=2, padx=5)
         

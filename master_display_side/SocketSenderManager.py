@@ -80,33 +80,33 @@ class SocketSenderManager:
         command = ['ping', param, '1', self.host]
         return subprocess.call(command) == 0
         
-    def place_ramp(self, ch2send: Channel_Entry, start:float, stop:float, stepPerSecond:float) -> bool:
-        ''' returns True if successful. False if bounding error.'''
+    def place_ramp(self, ch2send: Channel_Entry, start_mA:float, stop_mA:float, stepPerSecond_mA:float) -> bool:
+        '''Note: all values must be in mA. Returns True if successful. False if bounding error.'''
 
-        if stepPerSecond == 0:
+        if stepPerSecond_mA == 0:
             self.logger.warning(f"place_ramp: zero requested as a step value")
             return False
-        # stop should have same sign as (stop-start). Assume that the user just messed up the sign of stepPerSecond. Change it for them.
-        if stepPerSecond/abs(stepPerSecond) != (stop-start)/abs(stop-start):
-            stepPerSecond = -stepPerSecond
-            self.logger.info(f"place_ramp will assert negative step because step is {stepPerSecond} but stop={stop} and start={start}.")
-        if start<ch2send.realUnitsLowAmount or stop>ch2send.realUnitsHighAmount:
+        # stop should have same sign as (stop-start). Assume that the user just messed up the sign of stepPerSecond_mA. Change it for them.
+        if stepPerSecond_mA/abs(stepPerSecond_mA) != (stop_mA-start_mA)/abs(stop_mA-start_mA):
+            stepPerSecond_mA = -stepPerSecond_mA
+            self.logger.info(f"place_ramp will assert negative step because step is {stepPerSecond_mA} but stop={stop_mA} and start={start_mA}.")
+        if start_mA<4 or stop_mA>20:
             print("[ERROR] invalid start or end values")
-            self.logger.warning(f"place_ramp: Either start={start} or stop={stop} exceeded the lower or upper limit for {ch2send.name}, which are {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
+            self.logger.warning(f"place_ramp: Either start={start_mA} or stop={stop_mA} exceeded the lower or upper limit for {ch2send.name}, which are {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
             return False
         
-        value_entries = np.arange(start=start, stop=stop, step=stepPerSecond)
+        value_entries = np.arange(start=start_mA, stop=stop_mA, step=stepPerSecond_mA)
         timestamp_offsets = np.arange(start=0, stop=len(value_entries), step=1)
         refTime = time.time()
         for i in range(0, len(value_entries)):
-            val2send = value_entries[i]
+            val2send = float(value_entries[i]) # convert from np.float64 to regular float
             # print(f" {i}: {val2send} at t={refTime + timestamp_offsets[i]}")
             de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.gpio, 
-                        val = ch2send.convert_to_packetUnits(val2send), 
-                        time = refTime + timestamp_offsets[i])
+                        val = val2send, 
+                        time = float(refTime + timestamp_offsets[i])) # convert from np.float64 to regular float
             with self.mutex:
                 self.theCommandQueue.put(entry = de)
-        self.logger.info(f"[place_ramp] placed ramp command for {ch2send.name} start={start}, stop={stop}, stepPerSecond={stepPerSecond}")
+        self.logger.info(f"[place_ramp] placed ramp command for {ch2send.name} start={start_mA}, stop={stop_mA}, stepPerSecond={stepPerSecond_mA}")
         return True
 
     def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> None:
@@ -165,7 +165,7 @@ class SocketSenderManager:
                 self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Could not establish a socket connection with {self.host} within timeout={self.socketTimeout} seconds. \n{e}", time=time.time()))
                 self.logger.critical(f"_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
                 continue
-
+            print(f"packet sent is {dpm_out.get_packet_as_string()}")
             self.sock.send(dpm_out.get_packet_as_string().encode())
             dpm_catch = DataPacketModel.from_socket(self.sock)
 
