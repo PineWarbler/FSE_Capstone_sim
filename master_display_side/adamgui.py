@@ -129,15 +129,18 @@ def save_input_value(name, input_value_entry, current_label):
 def create_dropdown(parent, name):
     frame = ctk.CTkFrame(parent)
 
-    ctk.CTkLabel(frame, text="Minimum Value").pack()
+    ddminLabel = ctk.CTkLabel(frame, text="Minimum Value")
+    ddminLabel.pack()
     start_entry = ctk.CTkEntry(frame, width=100)
     start_entry.pack()
 
-    ctk.CTkLabel(frame, text="Maximum Value").pack()
+    ddmaxLabel = ctk.CTkLabel(frame, text="Maximum Value")
+    ddmaxLabel.pack()
     end_entry = ctk.CTkEntry(frame, width=100)
     end_entry.pack()
 
-    ctk.CTkLabel(frame, text="Rate").pack()
+    ddrateLabel = ctk.CTkLabel(frame, text="Rate")
+    ddrateLabel.pack()
     rate_entry = ctk.CTkEntry(frame, width=100)
     rate_entry.pack()
 
@@ -150,7 +153,7 @@ def create_dropdown(parent, name):
     # disabled because cancel would need to toggle the active state of the send button, but we don't have scope access to that btn obj
     ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda: frame.pack_forget()).pack(side="left", padx=5)
 
-    return frame
+    return [frame, ddminLabel, ddmaxLabel, ddrateLabel]
 
 def place_single(name:str, entry, segmentedUnitButton):
     val = float(entry.get())
@@ -165,38 +168,42 @@ def place_single(name:str, entry, segmentedUnitButton):
 def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
     pass
 
+def segmented_button_callback(unit, dminLabel, dmaxLabel, drateLabel):
+    # print(f"unit is {unit}")
+    # unit = str(segmentedUnitButton.get())
+    dminLabel.configure(text=f"Start ({unit})")
+    dmaxLabel.configure(text=f"Stop ({unit})")
+    drateLabel.configure(text=f"Rate ({unit}/s)")
+
 # Create analog outputs with separate dropdowns and input fields
 # or whatever element of the row that will need to be updated with value
-ao_label_objects = dict() # key:value = "SPT":<label obj>
+ao_label_objects = dict() # key:value = "SPT":[<label obj>,dd1,dd2,dd3] where ddx are labels of start, stop, and rate boxes
 for name, ch_entry in my_channel_entries.channels.items():
     if ch_entry.sig_type.lower() != "ao" or not ch_entry.showOnGUI:
         continue
     frame = ctk.CTkFrame(scrollable_frame)
     frame.pack(pady=5, fill='x')
-    # frame.pack(side="left")
+
     ctk.CTkLabel(frame, text=f"{name}").grid(row=0, column=0, padx=5, sticky="w")
     input_value_entry = ctk.CTkEntry(frame, width=100)
     input_value_entry.grid(row=0, column=1, padx=5)
-    # unitSelector = 
-    
-    unitSelector = ctk.CTkSegmentedButton(frame, values=[f"{ch_entry.units}", "mA"], selected_color="green", selected_hover_color="green")# , command=segmented_button_callback)
-    unitSelector.set(f"{ch_entry.units}")
-    # unitSelector = ctk.CTkTabview(frame, width=0, height=0)
-    unitSelector.grid(row=0, column=2, padx=5)
 
-    # unitSelector.add(f"{ch_entry.units}")
-    # unitSelector.add("mA")
+    unitSelector = ctk.CTkSegmentedButton(frame, values=[f"{ch_entry.units}", "mA"], selected_color="green", selected_hover_color="green")
     
-    # current_label = ctk.CTkLabel(frame, text="4.00 mA")
-    # current_label.grid(row=0, column=2, padx=10)
     save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, s=unitSelector: place_single(n, e, s))
-    # save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda )
     save_text_button.grid(row=0, column=3, padx=5)
-    dropdown_frame = create_dropdown(scrollable_frame, name)
+    
+    dropdown_frame, ddmin, ddmax, ddrate = create_dropdown(scrollable_frame, name)
     arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame, p=frame, b=save_text_button: toggle_dropdown(f, p, b))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
     
+    
+    unitSelector.configure(command = lambda unit=unitSelector.get(), dmin=ddmin, dmax=ddmax, drate=ddrate: segmented_button_callback(unit,dmin,dmax,drate))
+    segmented_button_callback(ch_entry.units, ddmin, ddmax, ddrate) # set default units to engineering
+    unitSelector.set(f"{ch_entry.units}")
+    unitSelector.grid(row=0, column=2, padx=5)
+        
     lastSentLabel = ctk.CTkLabel(frame, text="") # initialize empty at first
     lastSentLabel.grid(row=0, column=5, padx=5, sticky="e")
     ao_label_objects[name] = lastSentLabel
@@ -286,9 +293,9 @@ def process_queue():
         if ch.getGPIOStr() is None:
             pass # print("invalid gpio config?")
         else:
-            # pass
-            print(f"auto-placing read request for {ch.name}")
-            SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
+            pass
+            # print(f"auto-placing read request for {ch.name}")
+            # SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
             
     # this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
     # for name,label_obj in di_label_objects.items():
