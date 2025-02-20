@@ -28,6 +28,12 @@ app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 
+def shutdown():
+    SSM.close() # removes any enqueued command requests
+    app.destroy()
+    
+app.protocol("WM_DELETE_WINDOW", shutdown)
+
 # Main container frame
 main_frame = ctk.CTkFrame(app)
 main_frame.grid(row=0, column=0, sticky="nsew")
@@ -176,8 +182,8 @@ def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
     if unit != "mA": # convert to mA if not already
         startVal = chEntry.EngineeringUnits_to_mA(startVal)
         stopVal = chEntry.EngineeringUnits_to_mA(stopVal)
-        rateVal = chEntry.EngineeringUnits_to_mA(rateVal)
-    
+        rateVal = chEntry.EngineeringUnitsRate_to_mARate(rateVal)
+    print(f"start:{startVal}, stop:{stopVal}, rate:{rateVal}")
     success = SSM.place_ramp(ch2send=chEntry, start_mA=startVal, stop_mA=stopVal, stepPerSecond_mA=rateVal)
     if success:
         startEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736

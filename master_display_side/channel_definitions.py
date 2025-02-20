@@ -66,6 +66,10 @@ class Channel_Entry:
             return int(engUnits)
         else:
             return None
+    
+    def EngineeringUnitsRate_to_mARate(self, engUnitRate:float):
+        ''' engUnitRate has units like PSI/second'''
+        return (20-4) * engUnitRate / (self.realUnitsHighAmount-self.realUnitsLowAmount)
        
     def EngUnits_str(self, mA_val):
         return f"{self.mA_to_EngineeringUnits(mA_val)} {self.units}"
