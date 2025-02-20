@@ -96,7 +96,10 @@ class SocketSenderManager:
             return False
         
         value_entries = np.arange(start=start_mA, stop=stop_mA, step=stepPerSecond_mA)
+        value_entries = np.append(value_entries, stop_mA) # include the end point (arange omits)
         timestamp_offsets = np.arange(start=0, stop=len(value_entries), step=1)
+        # print(f"value entries are {value_entries}")
+        # print(f"timestamp_offsets are {timestamp_offsets}")
         refTime = time.time()
         for i in range(0, len(value_entries)):
             val2send = float(value_entries[i]) # convert from np.float64 to regular float
@@ -189,5 +192,9 @@ class SocketSenderManager:
         self.endcqLoop = True
         self.cqLoopThreadReference.die = True
         self.cqLoopThreadReference.join()
-        self.sock.close()
+        self.theCommandQueue.pop_all() # clear any remaining ramp entries
+        try: # recall that self.socket is created for the first time when data has been put on the queue
+            self.sock.close()
+        except:
+            pass
         self.logger.info("SocketSenderManager has closed successfully")
