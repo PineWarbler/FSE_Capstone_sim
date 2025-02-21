@@ -38,7 +38,7 @@ spi.max_speed_hz = 10000
 spi.no_cs
 
 my_module_manager = Module_Manager(spi = spi)
-indicator_gpio_str = "GPIO12"
+indicator_gpio_str = "GPIO13"
 my_module_manager.make_module_entry(gpio_str=indicator_gpio_str, chType="in") # indicator light
         
 # --- functions ---
