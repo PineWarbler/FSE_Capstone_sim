@@ -165,7 +165,7 @@
         {
             "name": "Pi Networking Status",
             "sig_type" : "do",
-            "boardSlotPosition" : 36,
+            "boardSlotPosition" : 15,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,

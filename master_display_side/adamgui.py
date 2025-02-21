@@ -23,6 +23,7 @@ SSM = SocketSenderManager(host="192.168.80.1", port=5000,
 
 # Configure the main application window
 app = ctk.CTk()
+app.wm_iconbitmap('app_icon.ico')
 app.title("ICS Phase II - Beta")
 app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")
 app.grid_rowconfigure(0, weight=1)
@@ -100,14 +101,16 @@ for name, ch_entry in my_channel_entries.channels.items():
 saved_values = {}
 
 
-def toggle_dropdown(frame,parent_frame,sendBtn):
+def toggle_dropdown(frame,parent_frame,sendBtn, arrowBtn):
     if frame.winfo_ismapped():
         sendBtn.configure(state="normal")
         frame.pack_forget()
+        arrowBtn.configure(text="⬇")
     else:
         frame.pack(after=parent_frame, pady=5)
         current_dropdown = frame
         sendBtn.configure(state="disabled")
+        arrowBtn.configure(text="↑")
 
 def save_range_values(name, start_entry, end_entry, rate_entry, frame):
     start = float(start_entry.get()) if start_entry.get() else 0
@@ -218,7 +221,8 @@ for name, ch_entry in my_channel_entries.channels.items():
     
     dropdown_frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn = create_dropdown(scrollable_frame, name)
     # dropdown_frame, ddmin, ddmax, ddrate, sendBtn = create_dropdown(scrollable_frame, name)
-    arrow_button = ctk.CTkButton(frame, text="⬇", width=20, command=lambda f=dropdown_frame, p=frame, b=save_text_button: toggle_dropdown(f, p, b))
+    arrow_button = ctk.CTkButton(frame, text="⬇", width=20)
+    arrow_button.configure(command=lambda f=dropdown_frame, p=frame, b=save_text_button, ab=arrow_button: toggle_dropdown(f, p, b, ab))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
     
@@ -238,12 +242,13 @@ for name, ch_entry in my_channel_entries.channels.items():
 def toggleDOswitch(name:str, ctkSwitch):
     val = ctkSwitch.get()
     SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
-    if ctkSwitch.state == "normal":
-        ctkSwitch.configure(state="disabled")
-    else:
-        ctkSwitch.configure(state="normal")
+    # if ctkSwitch.state == "normal":
+    ctkSwitch.configure(state="disabled")
+    # else:
+        # ctkSwitch.configure(state="normal")
         
 # digital outputs
+do_switches = dict() # like name:<switch obj>
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
 for name, ch_entry in my_channel_entries.channels.items():
 
@@ -254,6 +259,7 @@ for name, ch_entry in my_channel_entries.channels.items():
     motor_status_switch.configure(command = lambda n=name, switchObj=motor_status_switch: toggleDOswitch(n, motor_status_switch))
     motor_status_switch.pack(pady=10)
     motor_status_switch.select()
+    do_switches[name] = motor_status_switch
 
 # Digital Inputs
 def toggle_light():
@@ -297,10 +303,12 @@ def process_queue():
                 if int(sockResp.val) == 1:
                     di_label_objects[chEntry.name].configure(fg_color = "green")
                 else:
-                    di_label_objects[chEntry.name].configure(fg_color = "red")
+                    di_label_objects[chEntry.name].configure(fg_color = "gray")
             elif chEntry.sig_type.lower() == "do":
                 # then the response is ack from RPI
-                print("empty branch for do")
+                do_switches[chEntry.name].configure(state="normal") # make togglable again
+                # after receive confirmation of execution
+                # print("empty branch for do")
             elif "ao" in chEntry.sig_type.lower(): # response is like "ao ack"
                 # then the response is ack from RPI
                 labelObj = ao_label_objects.get(chEntry.name)

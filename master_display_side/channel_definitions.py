@@ -26,6 +26,7 @@ class Channel_Entry:
     11: "GPIO19",
     12: "GPIO21",
     24: "GPIO6",
+    35: "GPIO99",
     "r1": "GPIO26" # relay slot 1
     }
 
