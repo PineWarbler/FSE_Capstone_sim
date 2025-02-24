@@ -11,6 +11,7 @@ from typing import Union
 import time
 import numpy as np # for generating the ramp vectors
 import queue
+from datetime import datetime # for creation of logging filename
 
 # libraries required to perform network pingf
 import platform    # For getting the operating system name
@@ -22,7 +23,8 @@ from channel_definitions import Channel_Entry, Channel_Entries
 
 class SocketSenderManager:
     logger = logging.getLogger(__name__)
-    logging.basicConfig(filename='runtime.log', encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(filename=f'instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', 
+                        encoding='utf-8', level=logging.DEBUG)
 
     def __init__(self, host:str, port:int, q: queue.Queue, socketTimeout:float=5, testSocketOnInit:bool=True, startupLoopDelay:float=0.1): #, verbose=False
         '''
@@ -30,8 +32,6 @@ class SocketSenderManager:
         It will handle sending the commands as packets using its own instance of the CommandQueue class. Any responses
         from the Raspberry Pi will be placed on the queue whose reference is passed to the constructor.
         If using a GUI, you can periodically poll the queue to see if this class has received any new responses.
-        Also, this class will echo AO ramp steps back to the `q`--based on the currently-asserted entry, so that the GUI can show the
-        current output value in mA.
 
         if testSocketOnInit is True, this constructor will try to ping the host.
         If the host responds, a network confirmation status message will be placed on `q`. Otherwise, will place an errorEntry.
@@ -95,6 +95,7 @@ class SocketSenderManager:
             self.logger.warning(f"place_ramp: Either start={start_mA} or stop={stop_mA} exceeded the lower or upper limit for {ch2send.name}, which are {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
             return False
         
+        # TODO: remove numpy dependency. This is the only codebase usage of numpy
         value_entries = np.arange(start=start_mA, stop=stop_mA, step=stepPerSecond_mA)
         value_entries = np.append(value_entries, stop_mA) # include the end point (arange omits)
         timestamp_offsets = np.arange(start=0, stop=len(value_entries), step=1)
@@ -192,7 +193,7 @@ class SocketSenderManager:
         self.endcqLoop = True
         self.cqLoopThreadReference.die = True
         self.cqLoopThreadReference.join()
-        self.theCommandQueue.pop_all() # clear any remaining ramp entries
+        self.theCommandQueue.clear_all() # clear any remaining ramp entries
         try: # recall that self.socket is created for the first time when data has been put on the queue
             self.sock.close()
         except:

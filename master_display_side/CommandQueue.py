@@ -78,6 +78,11 @@ class CommandQueue:
             currEl = self.pop_due()
         return l
     
+    def clear_all(self) -> None:
+        ''' clears the heap without returning any of the popped values'''
+        self.heap.clear()
+
+
     def pop_all(self) -> list[dataEntry]:
         ''' 
         pops all items in the heap, regardless of their timestamp priority, sorted newest to oldest.

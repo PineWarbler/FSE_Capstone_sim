@@ -11,6 +11,21 @@ os.chdir('./master_display_side') #equivalent to %cd tests # return to base dir
 from channel_definitions import Channel_Entries, Channel_Entry
 from SocketSenderManager import SocketSenderManager
 
+# enable logging
+import sys
+import logging
+import traceback
+from datetime import datetime
+
+# log uncaught exceptions to file
+def exception_handler(type, value, tb):
+    for line in traceback.TracebackException(type, value, tb).format(chain=True):
+        logging.exception(line)
+        print(line)
+    logging.exception(value)
+    print(value)
+    
+
 # load channel entries from config file
 my_channel_entries = Channel_Entries()
 my_channel_entries.load_from_config_file(config_file_path="config.json")
@@ -28,6 +43,10 @@ app.title("ICS Phase II - Beta")
 app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
+
+# enable logging. TKinter requires a weird trick. See https://stackoverflow.com/a/44004413
+logging.basicConfig(filename=f'instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', encoding='utf-8', level="critical")
+app.report_callback_exception = exception_handler # this here.
 
 def shutdown():
     SSM.close() # removes any enqueued command requests
