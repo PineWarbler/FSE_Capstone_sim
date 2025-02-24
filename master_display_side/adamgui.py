@@ -4,18 +4,19 @@ import queue
 import threading
 import time
 import tkinter as tk
+from tkinter import ttk
 import os
 os.chdir('../') #equivalent to %cd ../ # go to parent folder
 from PacketBuilder import dataEntry, errorEntry, DataPacketModel
 os.chdir('./master_display_side') #equivalent to %cd tests # return to base dir
 from channel_definitions import Channel_Entries, Channel_Entry
 from SocketSenderManager import SocketSenderManager
-
 # enable logging
 import sys
 import logging
 import traceback
 from datetime import datetime
+
 
 # log uncaught exceptions to file
 def exception_handler(type, value, tb):
@@ -68,10 +69,18 @@ analog_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 analog_inputs_frame.grid(row=0, column=1, padx=10, pady=10, sticky="ne")
 
 digital_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
-digital_outputs_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+digital_outputs_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
 digital_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
-digital_inputs_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+digital_inputs_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
+
+error_frame = ctk.CTkFrame(main_frame, corner_radius=10)
+error_frame.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
+
+connector_frame = ctk.CTkFrame(main_frame, corner_radius=10)
+connector_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+
+
 
 # Analog Outputs with Scrollbar
 analog_outputs_label = ctk.CTkLabel(analog_outputs_frame, text="Analog Outputs", font=("Arial", 16))
@@ -269,6 +278,8 @@ def toggleDOswitch(name:str, ctkSwitch):
 # digital outputs
 do_switches = dict() # like name:<switch obj>
 ctk.CTkLabel(digital_outputs_frame, text="Digital Outputs", font=("Arial", 16)).pack(pady=10)
+
+
 for name, ch_entry in my_channel_entries.channels.items():
 
     if ch_entry.sig_type.lower() != "do" or not ch_entry.showOnGUI:
@@ -286,6 +297,8 @@ def toggle_light():
 
 di_label_objects = dict() # key:value = "AOP":<label obj>. Change the fg_color
 ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
+
+ctk.CTkLabel(error_frame, text="Errors", font=("Arial", 16)).pack(pady=10)
 for name, ch_entry in my_channel_entries.channels.items():
 
     if ch_entry.sig_type.lower() != "di" or not ch_entry.showOnGUI:
@@ -361,5 +374,46 @@ def process_queue():
 app.after(0, func=process_queue)
 SSM.startupLoopDelay=0.1
 print(f"for tkinter file: {threading.current_thread()}")
-# Run the app
+
+
+import socket
+
+# Function to display error message in error_frame
+def show_error(message):
+    for widget in error_frame.winfo_children():
+        widget.destroy()  # Clear previous content
+
+    # Title
+    title_label = ctk.CTkLabel(error_frame, text="Error", font=("Arial", 16))
+    title_label.pack(pady=(5, 2))
+
+    # Error message
+    error_label = ctk.CTkLabel(error_frame, text=message, text_color="red", font=("Arial", 14))
+    error_label.pack(padx=10, pady=5)
+
+# Function to check network connection and update connector_frame
+def check_connection():
+    for widget in connector_frame.winfo_children():
+        widget.destroy()  # Clear previous content
+
+    # Title
+    title_label = ctk.CTkLabel(connector_frame, text="Connection Status", font=("Arial", 16))
+    title_label.pack(pady=(5, 2))
+
+    try:
+        socket.create_connection(("8.8.8.8", 53), timeout=3)
+        status_label = ctk.CTkLabel(connector_frame, text="Connected ✅", text_color="green", font=("Arial", 14))
+    except OSError:
+        status_label = ctk.CTkLabel(connector_frame, text="No Connection ❌", text_color="red", font=("Arial", 14))
+
+    status_label.pack(padx=10, pady=5)
+
+# Example usage
+show_error("Invalid Input!")
+check_connection()
+
+
+
+
+
 app.mainloop()
