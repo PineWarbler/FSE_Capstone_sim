@@ -67,7 +67,13 @@ class Channel_Entry:
             return int(engUnits)
         else:
             return None
+        
+    def isValidmA(self, mA_val) -> bool:
+        return 4 <= mA_val <= 20
     
+    def isValidEngineeringUnits(self, engUnits) -> bool:
+        return self.isValidmA(self.EngineeringUnits_to_mA(engUnits=engUnits))
+
     def EngineeringUnitsRate_to_mARate(self, engUnitRate:float):
         ''' engUnitRate has units like PSI/second'''
         return (20-4) * engUnitRate / (self.realUnitsHighAmount-self.realUnitsLowAmount)
