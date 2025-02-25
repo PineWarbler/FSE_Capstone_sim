@@ -97,8 +97,10 @@ class dataEntry:
         
 
 class errorEntry:
-    ''' a general-purpose object to report errors with electrical interfaces '''
-    def __init__(self, source: str, criticalityLevel: str, description: str, time: float = None):
+    ''' a general-purpose object to report errors with electrical interfaces. You can also set criticalityLevel
+     to None to signify a neutral status entry
+    '''
+    def __init__(self, source: str, criticalityLevel: str|None, description: str, time: float = None):
         self.source = source
         self.criticalityLevel = criticalityLevel
         self.description = description

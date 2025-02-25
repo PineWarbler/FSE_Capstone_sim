@@ -23,10 +23,10 @@ from channel_definitions import Channel_Entry, Channel_Entries
 
 class SocketSenderManager:
     logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=f'instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', 
+    logging.basicConfig(filename=f'./logs/instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', 
                         encoding='utf-8', level=logging.DEBUG)
 
-    def __init__(self, host:str, port:int, q: queue.Queue, socketTimeout:float=5, testSocketOnInit:bool=True, startupLoopDelay:float=0.1): #, verbose=False
+    def __init__(self, host:str, port:int, q: queue.Queue, socketTimeout:float=5, testSocketOnInit:bool=True, loopDelay:float=0.1): #, verbose=False
         '''
         An intermediary class that accepts signal commands from a GUI (use `place_single_dataEntry` or `place_ramp`)
         It will handle sending the commands as packets using its own instance of the CommandQueue class. Any responses
@@ -38,11 +38,17 @@ class SocketSenderManager:
 
         ARGS:
         host and port correspond to the RPi (192.168.80.1:5000). Any response data that this class receives from the RPi will be 
-        placed on `q` and can be read by another process'''
+        placed on `q` and can be read by another process
+        loopDelay != 0 (seconds): defines the polling frequency for the background thread to check if any packets are waiting to
+                                be sent over the socket.  Setting this delay to zero might cause the GUI to lag or become unresponsive.
+                            Note that the an unresponsive socket will slow down the polling frequency because socketTimeout is elapsed 
+                            at each attempt to make a socket connection. Recommended to decrease this value instead of loopDelay if you
+                            want a more responsive loop effect.
+        '''
         self.host = host
         self.port = port
         self.socketTimeout = socketTimeout
-        self.startupLoopDelay = startupLoopDelay
+        self.loopDelay = loopDelay
 
         self.qForGUI = q # a queue of errorEntries or dataEntries; 
         # stores data that should be available to the GUI (from RPI or error messages thrown by this class or echoes of sent ramp values)
@@ -54,7 +60,9 @@ class SocketSenderManager:
             if not respStatus:
                 self.qForGUI.put(errorEntry(source="Ethernet Socket", criticalityLevel="high", description=f"Could not receive ping response from {self.host}", time=time.time()))
             else:
-                self.qForGUI.put(dataEntry(chType="ao", gpio_str="SocketSenderManager is online", val=1, time=time.time()))
+                self.qForGUI.put(dataEntry(chType="ao", gpio_str="status:SocketSenderManager is online", val=1, time=time.time()))
+                # send a status message to gui. We'll repurpose the errorEntry class with criticality None
+                self.qForGUI.put(errorEntry(source="Ethernet Connection", criticalityLevel=None, description=f"Host {self.host} responded to a ping.", time=time.time()))
                 self.logger.info(f"testSocketOnInit received ping response. Ping delay was {int((end - start)*1000)} ms.")     
 
         self.endcqLoop = False # semaphore to tell _loopCommandQueue thread to stop
@@ -90,15 +98,15 @@ class SocketSenderManager:
         if stepPerSecond_mA/abs(stepPerSecond_mA) != (stop_mA-start_mA)/abs(stop_mA-start_mA):
             stepPerSecond_mA = -stepPerSecond_mA
             self.logger.info(f"place_ramp will assert negative step because step is {stepPerSecond_mA} but stop={stop_mA} and start={start_mA}.")
-        if start_mA<4 or stop_mA>20:
+
+        if not ch2send.isValidmA(start_mA) or not ch2send.isValidmA(stop_mA):
             print("[ERROR] invalid start or end values")
-            self.logger.warning(f"place_ramp: Either start={start_mA} or stop={stop_mA} exceeded the lower or upper limit for {ch2send.name}, which are {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
+            self.logger.warning(f"place_ramp: Refused to place invalid ramp command with start={start_mA} and stop={stop_mA}. Request exceeded the lower or upper limit for {ch2send.name}, which are {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount}, respectively.")
             return False
         
-        # TODO: remove numpy dependency. This is the only codebase usage of numpy
-        value_entries = np.arange(start=start_mA, stop=stop_mA, step=stepPerSecond_mA)
-        value_entries = np.append(value_entries, stop_mA) # include the end point (arange omits)
-        timestamp_offsets = np.arange(start=0, stop=len(value_entries), step=1)
+        value_entries = self._arange(start=start_mA, stop=stop_mA, step=stepPerSecond_mA)
+        value_entries.append(stop_mA) # include the end point (arange omits)
+        timestamp_offsets = self._arange(start=0, stop=len(value_entries), step=1)
         # print(f"value entries are {value_entries}")
         # print(f"timestamp_offsets are {timestamp_offsets}")
         refTime = time.time()
@@ -113,23 +121,31 @@ class SocketSenderManager:
         self.logger.info(f"[place_ramp] placed ramp command for {ch2send.name} start={start_mA}, stop={stop_mA}, stepPerSecond={stepPerSecond_mA}")
         return True
 
-    def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> None:
+    def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> bool:
         ''' use this method to put commands that are not raw mA values. Conversion from engineering units to mA values 
-        will happen within this method's call to Channel_Entry.convert_to_packetUnits()'''
+        will happen within this method's call to Channel_Entry.convert_to_packetUnits()
+        returns true iff the place request was successful. False if value out of bounds.
+        '''
         if ch2send.getGPIOStr() is None:
             raise ValueError(f"[technician] you don't have a gpio pin mapped to board slot {ch2send.boardSlotPosition}, even though the user requested {ch2send.name}")
+        if ch2send.sig_type.lower() == "ao" and not ch2send.isValidEngineeringUnits(val_in_eng_units):
+            return False
         de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=ch2send.convert_to_packetUnits(val_in_eng_units), time=time)
         with self.mutex:
             self.theCommandQueue.put(de)
         self.logger.info(f"place_single_EngineeringUnits: {de}")
+        return True
     
-    def place_single_mA(self, ch2send : Channel_Entry, mA_val : float, time : float) -> None:
+    def place_single_mA(self, ch2send : Channel_Entry, mA_val : float, time : float) -> bool:
         # !!!!!!!!!! Use only for analog outputs!!!!!!
         # Engineering units to mA conversion happens on the master side. RPi receives only mA values.
+        if not ch2send.isValidmA(mA_val):
+            return False
         de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=mA_val, time=time)
         with self.mutex:
             self.theCommandQueue.put(de)
         self.logger.info(f"place_single_mA: {de}")
+        return True
 
     def _loopCommandQueue(self) -> None:
         '''A continuous loop that should be run in a background thread. Checks to see if any data entries are (over)due
@@ -143,8 +159,8 @@ class SocketSenderManager:
             with self.mutex:
                 outgoings = self.theCommandQueue.pop_all_due() # returns a list of dataEntry objects or an empty list
 
-            if self.startupLoopDelay>0: # the GUI freezes at first if this loop is run unchecked
-                time.sleep(self.startupLoopDelay)
+            if self.loopDelay>0: # the GUI freezes at first if this loop is run unchecked
+                time.sleep(self.loopDelay)
 
             if len(outgoings) == 0:
                 continue
@@ -171,7 +187,10 @@ class SocketSenderManager:
                 continue
             print(f"packet sent is {dpm_out.get_packet_as_string()}")
             self.sock.send(dpm_out.get_packet_as_string().encode())
-            dpm_catch = DataPacketModel.from_socket(self.sock)
+            try:
+                dpm_catch = DataPacketModel.from_socket(self.sock)
+            except Exception as e:
+                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"{e}", time=time.time()))
 
             self.sock.close()
             
@@ -184,7 +203,27 @@ class SocketSenderManager:
             for i in range(0, numErrors):
                 self.qForGUI.put(dpm_catch.error_entries[i]) 
         self.logger.info("_loopCommandQueue has shut down after having received semaphore")
-    
+
+    def _arange(self, start, stop, step):
+        ''' functional clone of numpy's arange function. Defined here so that we can remove the numpy dependency'''
+        # If only one argument is provided, assume it is the stop value
+        if stop is None:
+            stop = start
+            start = 0
+        # Handle case where step is 0 (this would result in an infinite loop)
+        if step == 0:
+            raise ValueError("step cannot be zero")
+
+        # Initialize the result list
+        result = []
+        # Generate the numbers using a while loop
+        current = start
+        while (step > 0 and current < stop) or (step < 0 and current > stop):
+            result.append(current)
+            current += step
+
+        return result
+
     def clearGUIQueue(self):
         while not self.qForGUI.empty():
             self.qForGUI.get()

@@ -33,7 +33,7 @@ my_channel_entries.load_from_config_file(config_file_path="config.json")
 
 socketRespQueue = queue.Queue() # will contain responses from the RPi
 SSM = SocketSenderManager(host="192.168.80.1", port=5000,
-                          q=socketRespQueue, socketTimeout=5, testSocketOnInit=False, startupLoopDelay=1)
+                          q=socketRespQueue, socketTimeout=5, testSocketOnInit=False, loopDelay=1)
 # # we will call this object's methods: `place_ramp`, `place_single_mA`, and `place_single_EngineeringUnits`
 # # to send commands to the RPi
 
@@ -46,7 +46,7 @@ app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 
 # enable logging. TKinter requires a weird trick. See https://stackoverflow.com/a/44004413
-logging.basicConfig(filename=f'instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', encoding='utf-8', level="critical")
+logging.basicConfig(filename=f'./logs/instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', encoding='utf-8', level="critical")
 app.report_callback_exception = exception_handler # this here.
 
 def shutdown():
@@ -74,12 +74,22 @@ digital_outputs_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 digital_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 digital_inputs_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
 
+##### error reporting frame ######
 error_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 error_frame.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
+ctk.CTkLabel(error_frame, text="Errors", font=("Arial", 16)).pack(pady=(5, 2))
+# Error message label that can be updated
+error_label = ctk.CTkLabel(error_frame, text="", text_color="red", font=("Arial", 14))
+error_label.pack(padx=10, pady=5)
 
+#### connection status frame #####
 connector_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 connector_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
+# Connection status pane: write once
+ctk.CTkLabel(connector_frame, text="Connection Status", font=("Arial", 16)).pack(pady=(5, 2))
+status_label = ctk.CTkLabel(connector_frame, text="Unknown", text_color="gray", font=("Arial", 14))
+status_label.pack(padx=10, pady=5)
 
 
 # Analog Outputs with Scrollbar
@@ -126,9 +136,6 @@ for name, ch_entry in my_channel_entries.channels.items():
         currCol +=1
     
     
-saved_values = {}
-
-
 def toggle_dropdown(frame,parent_frame,sendBtn, arrowBtn):
     if frame.winfo_ismapped():
         sendBtn.configure(state="normal")
@@ -139,29 +146,6 @@ def toggle_dropdown(frame,parent_frame,sendBtn, arrowBtn):
         current_dropdown = frame
         sendBtn.configure(state="disabled")
         arrowBtn.configure(text="↑")
-
-def save_range_values(name, start_entry, end_entry, rate_entry, frame):
-    start = float(start_entry.get()) if start_entry.get() else 0
-    end = float(end_entry.get()) if end_entry.get() else 100
-    rate = float(rate_entry.get()) if rate_entry.get() else 1
-
-    saved_values[name] = {"start": start, "end": end, "rate": rate}
-    frame.pack_forget()
-
-def save_input_value(name, input_value_entry, current_label):
-    input_value = float(input_value_entry.get()) if input_value_entry.get() else 0
-
-    if name in saved_values:
-        start = saved_values[name].get("start", 0)
-        end = saved_values[name].get("end", 100)
-
-        # Linear scaling from input value to 4-20 mA
-        scaled_current = 4 + ((input_value - start) / (end - start)) * (20 - 4)
-        scaled_current = max(4, min(20, scaled_current))  # Ensure within bounds
-        saved_values[name]["current"] = scaled_current
-        current_label.configure(text=f"{scaled_current:.2f} mA")
-    else:
-        current_label.configure(text="4.00 mA")
 
 def create_dropdown(parent, name):
     frame = ctk.CTkFrame(parent)
@@ -197,11 +181,19 @@ def place_single(name:str, entry, segmentedUnitButton):
     val = float(entry.get())
     unit = str(segmentedUnitButton.get())
     print(f"[place_single] name is {name}, entry is {val}, unit is {unit}")
+    
+    success = None
     if unit == "mA":
-        SSM.place_single_mA(ch2send=my_channel_entries.getChannelEntry(sigName=name), mA_val=float(val), time=time.time())
+        success = SSM.place_single_mA(ch2send=my_channel_entries.getChannelEntry(sigName=name), mA_val=float(val), time=time.time())
+        # print(f"mA placement success: {success}")
     else:
-        SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
-    entry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
+        success = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
+        
+    if success:
+        entry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736    
+    else:
+        socketRespQueue.put(errorEntry(f"{name} single input", criticalityLevel="medium", description=f"{name} value: {val} {unit} is outside of valid range"))
+    
 
 def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
     startVal = float(startEntry.get())
@@ -269,7 +261,7 @@ for name, ch_entry in my_channel_entries.channels.items():
 
 def toggleDOswitch(name:str, ctkSwitch):
     val = ctkSwitch.get()
-    SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
+    success = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
     # if ctkSwitch.state == "normal":
     ctkSwitch.configure(state="disabled")
     # else:
@@ -298,7 +290,6 @@ def toggle_light():
 di_label_objects = dict() # key:value = "AOP":<label obj>. Change the fg_color
 ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
 
-ctk.CTkLabel(error_frame, text="Errors", font=("Arial", 16)).pack(pady=10)
 for name, ch_entry in my_channel_entries.channels.items():
 
     if ch_entry.sig_type.lower() != "di" or not ch_entry.showOnGUI:
@@ -312,16 +303,46 @@ for name, ch_entry in my_channel_entries.channels.items():
     di_label_objects[name] = indicator_light
     indicator_light.pack(side="left")
 
+# Function to display error message in error_frame
+def show_error(message:str):
+    error_label.configure(text=message)
+    error_label.configure(text_color="red")
 
+# Function to write connector_frame with network status
+def show_connection_status(online:bool|None, message:str=""):
+    if online is None:
+        status_label.configure(text="Unknown")
+        status_label.configure(text_color="gray")
+        
+    if online:
+        status_label.configure(text=f"Connected ✅{message}")
+        status_label.configure(text_color="green")
+    else:
+        status_label.configure(text=f"No Connection ❌{message}")
+        status_label.configure(text_color="red")
+
+    
+
+# we have to call these on startup for them to initialize their frames
+show_error(message="")
+show_connection_status(online=None)
+    
 def process_queue():
     while not socketRespQueue.empty():
         sockResp = socketRespQueue.get() # could be a dataEntry or an errorEntry
         print(f"sockResp is {sockResp}")
-        if isinstance(sockResp, dataEntry):
-            if sockResp.gpio_str == "SocketSenderManager is online":
-                # TODO: online status gui element?
-                continue
+        if isinstance(sockResp, errorEntry):
+            
+            if "ethernet" in sockResp.source.lower():
+                show_connection_status(online=False)
 
+            show_error(message=sockResp.description)
+            print(f"received error entry: {sockResp}")
+            
+        elif isinstance(sockResp, dataEntry):
+            show_connection_status(online=True)
+            # show_error("")
+        
             chEntry = my_channel_entries.get_channelEntry_from_GPIOstr(sockResp.gpio_str)
             if chEntry is None:
                 if sockResp.gpio_str == "ack":
@@ -349,9 +370,6 @@ def process_queue():
                 print(f"updated label to {sockResp.val} mA")
                 # labelObj.text_color = "green"
                 
-        elif isinstance(sockResp, errorEntry):
-            print(f"received error entry: {sockResp}")
-            # pass
 
     # TODO: finally, place read periodic read requests for ai and di channels
     for name,meter in ai_meter_objects.items():
@@ -360,9 +378,9 @@ def process_queue():
         if ch.getGPIOStr() is None:
             pass # print("invalid gpio config?")
         else:
-            pass
+            # pass
             # print(f"auto-placing read request for {ch.name}")
-            # SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
+            SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
             
     # this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
     # for name,label_obj in di_label_objects.items():
@@ -372,48 +390,7 @@ def process_queue():
 
 # print("after defined process_queue")
 app.after(0, func=process_queue)
-SSM.startupLoopDelay=0.1
-print(f"for tkinter file: {threading.current_thread()}")
-
-
-import socket
-
-# Function to display error message in error_frame
-def show_error(message):
-    for widget in error_frame.winfo_children():
-        widget.destroy()  # Clear previous content
-
-    # Title
-    title_label = ctk.CTkLabel(error_frame, text="Error", font=("Arial", 16))
-    title_label.pack(pady=(5, 2))
-
-    # Error message
-    error_label = ctk.CTkLabel(error_frame, text=message, text_color="red", font=("Arial", 14))
-    error_label.pack(padx=10, pady=5)
-
-# Function to check network connection and update connector_frame
-def check_connection():
-    for widget in connector_frame.winfo_children():
-        widget.destroy()  # Clear previous content
-
-    # Title
-    title_label = ctk.CTkLabel(connector_frame, text="Connection Status", font=("Arial", 16))
-    title_label.pack(pady=(5, 2))
-
-    try:
-        socket.create_connection(("8.8.8.8", 53), timeout=3)
-        status_label = ctk.CTkLabel(connector_frame, text="Connected ✅", text_color="green", font=("Arial", 14))
-    except OSError:
-        status_label = ctk.CTkLabel(connector_frame, text="No Connection ❌", text_color="red", font=("Arial", 14))
-
-    status_label.pack(padx=10, pady=5)
-
-# Example usage
-show_error("Invalid Input!")
-check_connection()
-
-
-
-
+SSM.loopDelay=0.1
+# print(f"for tkinter file: {threading.current_thread()}")
 
 app.mainloop()
