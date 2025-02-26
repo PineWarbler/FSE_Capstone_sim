@@ -1,18 +1,18 @@
 import customtkinter as ctk
 from tkdial import Meter
 import queue
-import threading
 import time
-import tkinter as tk
-from tkinter import ttk
 import os
-os.chdir('../') #equivalent to %cd ../ # go to parent folder
-from PacketBuilder import dataEntry, errorEntry, DataPacketModel
-os.chdir('./master_display_side') #equivalent to %cd tests # return to base dir
-from channel_definitions import Channel_Entries, Channel_Entry
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__)) # Get the current file's directory
+parent_dir = os.path.dirname(current_dir) # Get the parent directory
+sys.path.append(parent_dir) # Add the parent directory to sys.path
+
+from PacketBuilder import dataEntry, errorEntry # this class is in the parent dir
+from channel_definitions import Channel_Entries
 from SocketSenderManager import SocketSenderManager
 # enable logging
-import sys
 import logging
 import traceback
 from datetime import datetime
@@ -147,6 +147,10 @@ def toggle_dropdown(frame,parent_frame,sendBtn, arrowBtn):
         sendBtn.configure(state="disabled")
         arrowBtn.configure(text="↑")
 
+def cancel_ramp_callback(frame):
+    # frame.pack_forget()
+    SSM.clearCommandQueue()
+    
 def create_dropdown(parent, name):
     frame = ctk.CTkFrame(parent)
 
@@ -172,8 +176,9 @@ def create_dropdown(parent, name):
                 #   command=lambda: save_range_values(name, start_entry, end_entry, rate_entry, frame))
     sendBtn.pack(side="left", padx=5)
 
-    # disabled because cancel would need to toggle the active state of the send button, but we don't have scope access to that btn obj
-    ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda: frame.pack_forget()).pack(side="left", padx=5)
+    clear_btn = ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda f=frame: cancel_ramp_callback(frame=f))
+    clear_btn.pack(side="left", padx=5)
+    
 
     return [frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn]
 
