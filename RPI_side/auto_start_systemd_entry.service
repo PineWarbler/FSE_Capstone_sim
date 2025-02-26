@@ -1,0 +1,12 @@
+[Unit]
+Description=Compressor simulator service. Will auto-run on boot. Authored by GCC's Capstone team. Spring 2025. Note that a copy of this script must be placed in /etc/systemd/system and must be registered to run using systemctl enable fse_sim_server.service.
+
+After=network.target
+
+[Service]
+ExecStart=python3 /home/fsepi51/Documents/FSE_Capstone_sim/RPI_side/mt_server_w_handlers.py
+user=fsepi51
+group=fsepi51
+
+[Install]
+WantedBy=multi-user.target
