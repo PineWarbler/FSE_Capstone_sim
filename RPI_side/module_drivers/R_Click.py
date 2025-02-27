@@ -34,7 +34,7 @@ class R_CLICK:
         return (combined_word & mask) >> 1
 
     def _counts_to_mA(self, counts: int) -> float:
-        return (1000 * self.V_REF * counts)/(self.R_SHUNT * 2**self.BIT_RES * 20) # see derivation in design notes
+        return (1000 * self.V_REF * counts)/(self.R_SHUNT * (2**self.BIT_RES-1) * 20) # see derivation in design notes
 
     def _twoBytes_to_mA(self, byteList: list[int]) -> float:
         return self._counts_to_mA(self._twoBytes_to_counts(byteList))
