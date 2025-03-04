@@ -1,10 +1,12 @@
 import os
-os.chdir('../') #equivalent to %cd ../ # go to parent folder
-from PacketBuilder import dataEntry, errorEntry, DataPacketModel
-os.chdir('./master_display_side') #equivalent to %cd tests # return to base dir
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__)) # Get the current file's directory
+parent_dir = os.path.dirname(current_dir) # Get the parent directory
+sys.path.append(parent_dir) # Add the parent directory to sys.path
 
 from CommandQueue import CommandQueue
 from channel_definitions import Channel_Entry # the configuration that defines which signals are connected to the Carrier board
+from PacketBuilder import dataEntry, errorEntry, DataPacketModel
 
 import logging
 import socket
@@ -19,7 +21,7 @@ import subprocess  # For executing a shell command
 
 class SocketSenderManager:
     logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=f'./logs/instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', 
+    logging.basicConfig(filename=f'logs/instance_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log', 
                         encoding='utf-8', level=logging.DEBUG)
 
     def __init__(self, host:str, port:int, q: queue.Queue, socketTimeout:float=5, 
@@ -182,7 +184,7 @@ class SocketSenderManager:
             try:
                 self.sock.connect((self.host, self.port))
             except Exception as e:
-                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Could not establish a socket connection with {self.host} within timeout={self.socketTimeout} seconds. \n{e}", time=time.time()))
+                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Attempted socket connection with {self.host} failed within timeout={self.socketTimeout} s.\n{e}", time=time.time()))
                 if self.log: self.logger.critical(f"_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
                 continue
             print(f"packet sent is {dpm_out.get_packet_as_string()}")
@@ -234,7 +236,8 @@ class SocketSenderManager:
     def close(self) -> None:
         self.endcqLoop = True
         self.cqLoopThreadReference.die = True
-        self.cqLoopThreadReference.join()
+        # don't need to call cqLoopThreadReference.join() because we don't want main gui thread to hang while the thread closes
+        # and the Threading class will automatically do thread cleanup
         self.theCommandQueue.clear_all() # clear any remaining ramp entries
         try: # recall that self.socket is created for the first time when data has been put on the queue
             self.sock.close()

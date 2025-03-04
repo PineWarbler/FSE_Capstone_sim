@@ -86,7 +86,13 @@ def handle_client(conn, addr, commandQueue):
                               time = time.time())
     
     print(f"[mt_server_w_handlers.handle_client] dpm_out is {str(dpm_out)}")
-    conn.send(dpm_out.get_packet_as_string().encode())
+    packet_contents = dpm_out.get_packet_as_string().encode()
+    try:
+        conn.send(packet_contents)
+    except Exception as e:
+        print(f"[mt_server_w_handlers.handle_client] encountered the following error on send: {e}")
+        conn.close()
+        return
 
     outQueue.clear() # reset because we've sent all of them to the master
     errorList.clear()
