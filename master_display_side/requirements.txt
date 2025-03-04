@@ -1,0 +1,6 @@
+colour==0.1.5
+customtkinter==5.2.2
+darkdetect==0.8.0
+packaging==24.2
+pillow==11.1.0
+TkDial_interactive_disable @ git+https://github.com/PineWarbler/TkDial_interactive_disable.git@0c0b17955d0d6e29776360815e165d2e04c775d6
