@@ -159,6 +159,8 @@ class SocketSenderManager:
         while not self.endcqLoop:
             with self.mutex:
                 outgoings = self.theCommandQueue.pop_all_due() # returns a list of dataEntry objects or an empty list
+                # note that we pop the due entries regardless of whether the socket is viable. But we re-place
+                # entries that are not auto-polling requests (see below)
 
             if self.loopDelay>0: # the GUI freezes at first if this loop is run unchecked
                 time.sleep(self.loopDelay)
@@ -185,7 +187,15 @@ class SocketSenderManager:
             except Exception as e:
                 self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Attempted socket connection with {self.host} failed within timeout={self.socketTimeout} s.\n{e}", time=time.time()))
                 if self.log: self.logger.critical(f"_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
+                # re-place requests that failed to send back on the queue, unless they're auto-poll requests
+                for el in outgoings:
+                    if isinstance(el, dataEntry) and el.chType.lower()[1]=="o":
+                        # then it's probably a user-requested output signal. Re-place the element
+                        # back on the queue to be treated when the socket comes online again
+                        # this behavior is needed to reactivate the do toggle switch on the UI
+                        self.theCommandQueue.put(el)
                 continue
+            
             # print(f"packet sent is {dpm_out.get_packet_as_string()}")
             self.sock.send(dpm_out.get_packet_as_string().encode())
             try:
