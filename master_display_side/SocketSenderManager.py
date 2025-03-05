@@ -71,7 +71,7 @@ class SocketSenderManager:
         self.theCommandQueue = CommandQueue() # a special class to manage timestamp-organized data entries sent to the Raspberry Pi
         self.mutex = threading.Lock() # to ensure one-at-a time access to shared CommandQueue instance
         self.cqLoopThreadReference = threading.Thread(target=self._loopCommandQueue, daemon=True)
-        print(self.cqLoopThreadReference) # print the handle for debugging
+        # print(self.cqLoopThreadReference) # print the handle for debugging
         self.cqLoopThreadReference.start()
     
     # def setThread(self, th):
@@ -113,10 +113,9 @@ class SocketSenderManager:
         # print(f"timestamp_offsets are {timestamp_offsets}")
         refTime = time.time()
         for i in range(0, len(value_entries)):
-            val2send = float(value_entries[i]) # convert from np.float64 to regular float
             # print(f" {i}: {val2send} at t={refTime + timestamp_offsets[i]}")
             de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.gpio, 
-                        val = val2send, 
+                        val = float(value_entries[i]), 
                         time = float(refTime + timestamp_offsets[i])) # convert from np.float64 to regular float
             with self.mutex:
                 self.theCommandQueue.put(entry = de)
@@ -187,7 +186,7 @@ class SocketSenderManager:
                 self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Attempted socket connection with {self.host} failed within timeout={self.socketTimeout} s.\n{e}", time=time.time()))
                 if self.log: self.logger.critical(f"_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
                 continue
-            print(f"packet sent is {dpm_out.get_packet_as_string()}")
+            # print(f"packet sent is {dpm_out.get_packet_as_string()}")
             self.sock.send(dpm_out.get_packet_as_string().encode())
             try:
                 dpm_catch = DataPacketModel.from_socket(self.sock)
@@ -230,6 +229,10 @@ class SocketSenderManager:
         while not self.qForGUI.empty():
             self.qForGUI.get()
     
+    def clearAllEntriesWithGPIOStr(self, gpio_str:str) -> int:
+        # returns number of entries removed
+        return self.theCommandQueue.pop_all_with_gpio_str(gpio_str=gpio_str)
+        
     def clearCommandQueue(self):
         self.theCommandQueue.clear_all()
     

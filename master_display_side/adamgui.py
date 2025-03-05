@@ -33,7 +33,7 @@ my_channel_entries.load_from_config_file(config_file_path="config.json")
 
 socketRespQueue = queue.Queue() # will contain responses from the RPi
 SSM = SocketSenderManager(host="192.168.80.1", port=5000,
-                          q=socketRespQueue, socketTimeout=5, testSocketOnInit=False, loopDelay=1)
+                          q=socketRespQueue, socketTimeout=3, testSocketOnInit=False, loopDelay=1)
 # # we will call this object's methods: `place_ramp`, `place_single_mA`, and `place_single_EngineeringUnits`
 # # to send commands to the RPi
 
@@ -118,7 +118,7 @@ for name, ch_entry in my_channel_entries.channels.items():
     meter_frame = ctk.CTkFrame(analog_inputs_frame)
     # currRow + 1 because first row is reserved for AI frame label
     meter_frame.grid(column=currCol, row=currRow+1, padx=10, pady=0, sticky="nsew")
-    print(f"row,col={currRow},{currCol}")
+    # print(f"row,col={currRow},{currCol}")
     meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=200)
     
     
@@ -140,16 +140,23 @@ def toggle_dropdown(frame,parent_frame,sendBtn, arrowBtn):
     if frame.winfo_ismapped():
         sendBtn.configure(state="normal")
         frame.pack_forget()
-        arrowBtn.configure(text="⬇")
+        arrowBtn.configure(text="⬇ Ramp")
     else:
         frame.pack(after=parent_frame, pady=5)
         current_dropdown = frame
         sendBtn.configure(state="disabled")
-        arrowBtn.configure(text="↑")
+        arrowBtn.configure(text="⬆")
 
-def cancel_ramp_callback(frame):
+def cancel_ramp_callback(frame, sigName:str):
     # frame.pack_forget()
-    SSM.clearCommandQueue()
+    ch = my_channel_entries.getChannelEntry(sigName)
+    if ch.getGPIOStr() is None:
+        return
+    # print(f"SSM.theCommandQueue.len is {len(SSM.theCommandQueue)}")
+    # print(f"Entire SSM.theCommandQueue is {SSM.theCommandQueue}")
+    numRemoved = SSM.clearAllEntriesWithGPIOStr(ch.getGPIOStr())
+    # print(f"removed {numRemoved} entries with sigName={sigName}")
+    # SSM.clearCommandQueue()
     
 def create_dropdown(parent, name):
     frame = ctk.CTkFrame(parent)
@@ -176,7 +183,7 @@ def create_dropdown(parent, name):
                 #   command=lambda: save_range_values(name, start_entry, end_entry, rate_entry, frame))
     sendBtn.pack(side="left", padx=5)
 
-    clear_btn = ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda f=frame: cancel_ramp_callback(frame=f))
+    clear_btn = ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda f=frame, n=name: cancel_ramp_callback(frame=f, sigName=n))
     clear_btn.pack(side="left", padx=5)
     
 
@@ -228,6 +235,7 @@ def segmented_button_callback(unit, dminLabel, dmaxLabel, drateLabel):
 
 # Create analog outputs with separate dropdowns and input fields
 # or whatever element of the row that will need to be updated with value
+
 ao_label_objects = dict() # key:value = "SPT":[<label obj>,dd1,dd2,dd3] where ddx are labels of start, stop, and rate boxes
 for name, ch_entry in my_channel_entries.channels.items():
     if ch_entry.sig_type.lower() != "ao" or not ch_entry.showOnGUI:
@@ -246,7 +254,7 @@ for name, ch_entry in my_channel_entries.channels.items():
     
     dropdown_frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn = create_dropdown(scrollable_frame, name)
     # dropdown_frame, ddmin, ddmax, ddrate, sendBtn = create_dropdown(scrollable_frame, name)
-    arrow_button = ctk.CTkButton(frame, text="⬇", width=20)
+    arrow_button = ctk.CTkButton(frame, text="⬇ Ramp", width=20)
     arrow_button.configure(command=lambda f=dropdown_frame, p=frame, b=save_text_button, ab=arrow_button: toggle_dropdown(f, p, b, ab))
     arrow_button.grid(row=0, column=4, padx=5)
     dropdown_frame.pack_forget()
@@ -265,12 +273,10 @@ for name, ch_entry in my_channel_entries.channels.items():
     ao_label_objects[name] = lastSentLabel
 
 def toggleDOswitch(name:str, ctkSwitch):
-    val = ctkSwitch.get()
+    val = ctkSwitch.get() # should be an integer already
     success = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
-    # if ctkSwitch.state == "normal":
-    ctkSwitch.configure(state="disabled")
-    # else:
-        # ctkSwitch.configure(state="normal")
+    
+    ctkSwitch.configure(state="disabled") # wait for a response from RPi to enable again
         
 # digital outputs
 do_switches = dict() # like name:<switch obj>
@@ -312,6 +318,9 @@ for name, ch_entry in my_channel_entries.channels.items():
 def show_error(message:str):
     error_label.configure(text=message)
     error_label.configure(text_color="red")
+    # error_label.configure(wraplength=500) # error_label.winfo_width()-5
+    # print(f"error frame width is {error_frame.winfo_width()}")
+    # print(f"error frame width is {error_label.winfo_width()}")
 
 # Function to write connector_frame with network status
 def show_connection_status(online:bool|None, message:str=""):
@@ -370,13 +379,12 @@ def process_queue():
             elif "ao" in chEntry.sig_type.lower(): # response is like "ao ack"
                 # then the response is ack from RPI
                 labelObj = ao_label_objects.get(chEntry.name)
-                # labelObj.text = 
                 labelObj.configure(text=f"{sockResp.val:.{1}f} mA")
                 print(f"updated label to {sockResp.val} mA")
-                # labelObj.text_color = "green"
                 
 
-    # TODO: finally, place read periodic read requests for ai and di channels
+    # finally, place read periodic read requests for ai and di channels
+    # ai channels first
     for name,meter in ai_meter_objects.items():
         # only the ch2send name is important. value can be whatever
         ch = my_channel_entries.getChannelEntry(name)
@@ -388,10 +396,13 @@ def process_queue():
             SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
             
     # this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
-    # for name,label_obj in di_label_objects.items():
-    # SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())
+    for name,label_obj in di_label_objects.items():
+        try:
+            SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())
+        except Exception as e:
+            print(f"Encountered error: {e}")
 
-    app.after(500, process_queue)  # Check queue again after 100ms
+    app.after(2000000, process_queue)  # Check queue again after 100ms
 
 # print("after defined process_queue")
 app.after(0, func=process_queue)

@@ -96,9 +96,32 @@ class CommandQueue:
         reversedHeap = beforeRemoveAll[::-1]
         return [h for h in reversedHeap] # return only the object, not the timestamp
 
+    def pop_all_with_gpio_str(self, gpio_str:str) -> int:
+        # finds all heap entries having the given gpio_str, and deletes them from the heap
+        # returns the number popped
+        if len(self.heap) == 0:
+            return 0
+        indicesToRemove = []
+        for i in range(len(self.heap)):
+            if self.heap[i].gpio_str == gpio_str:
+                indicesToRemove.append(i)
+        # now iterate from larger indices to smaller indices, removing values
+        for i in sorted(indicesToRemove, reverse=True):
+            del self.heap[i]
+        
+        heapq.heapify(self.heap)
+        return len(indicesToRemove)
+    
+    def _heapsort(self, iterable):
+        # this code from https://docs.python.org/3/library/heapq.html
+        h = []
+        for value in iterable:
+            heapq.heappush(h, value)
+        return [heapq.heappop(h) for i in range(len(h))]
             
     def __str__(self) -> str:
-        return ", ".join([str(ts) + "," + str(e) for ts, e in self.heap]) # each heap element is a tuple of timestamp and element
+        sortedH = self._heapsort(self.heap)
+        return ", ".join([str(e) for e in sortedH]) # each heap element is a tuple of timestamp and element
     
     def __len__(self) -> int:
         return len(self.heap)
