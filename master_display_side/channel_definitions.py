@@ -23,12 +23,13 @@ class Channel_Entry:
 
     # don't touch this dictionary unless you know what you're doing!
     _slot2gpio = {
-    11: "GPIO19",
-    12: "GPIO21",
-    24: "GPIO6",
-    34: "GPIO22",
-    35: "GPIO99",
-    "r1": "GPIO26" # relay slot 1
+    11: "GPIO5",
+    12: "GPIO6",
+    13: "GPIO12",
+    14: "GPIO13",
+    15: "GPIO19",
+    16: "GPIO16"
+    
     }
 
     def __init__(self, name : str, boardSlotPosition : int, sig_type : str, units : str | None,

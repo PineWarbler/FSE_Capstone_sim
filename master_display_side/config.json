@@ -7,12 +7,12 @@
             "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : 100,
             "engineeringUnitsHighAmount" : 200,
-            "showOnGUI": true
+            "showOnGUI": false
         },
         {
             "name": "SPT 1",
             "sig_type" : "ao",
-            "boardSlotPosition" : 12,
+            "boardSlotPosition" : 14,
             "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : 97.0,
             "engineeringUnitsHighAmount" : 200.0,
@@ -21,7 +21,7 @@
         {
             "name": "MAT 1",
             "sig_type" : "ao",
-            "boardSlotPosition" : 13,
+            "boardSlotPosition" : 34,
             "engineeringUnits" : "Amps",
             "engineeringUnitsLowAmount" : 145,
             "engineeringUnitsHighAmount" : 300,
@@ -30,7 +30,7 @@
         {
             "name": "DPT 2",
             "sig_type" : "ao",
-            "boardSlotPosition" : 14,
+            "boardSlotPosition" : 33,
             "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : 100,
             "engineeringUnitsHighAmount" : 200,
@@ -84,7 +84,7 @@
         {
             "name": "UVT 1",
             "sig_type" : "ai",
-            "boardSlotPosition" : 11,
+            "boardSlotPosition" : 35,
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
@@ -94,7 +94,7 @@
         {
             "name": "IVT 1",
             "sig_type" : "ai",
-            "boardSlotPosition" : 25,
+            "boardSlotPosition" : 12,
             "engineeringUnits" : "%",
             "engineeringUnitsLowAmount" : 0.0,
             "engineeringUnitsHighAmount" : 100.0,
@@ -144,7 +144,7 @@
         {
             "name": "AOP",
             "sig_type" : "di",
-            "boardSlotPosition" : 34,
+            "boardSlotPosition" : 13,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,

@@ -66,7 +66,7 @@ analog_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 analog_outputs_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
 analog_inputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
-analog_inputs_frame.grid(row=0, column=1, padx=10, pady=10, sticky="ne")
+analog_inputs_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
 digital_outputs_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 digital_outputs_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
@@ -79,7 +79,7 @@ error_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 error_frame.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
 ctk.CTkLabel(error_frame, text="Errors", font=("Arial", 16)).pack(pady=(5, 2))
 # Error message label that can be updated
-error_label = ctk.CTkLabel(error_frame, text="", text_color="red", font=("Arial", 14))
+error_label = ctk.CTkLabel(error_frame, text="", text_color="red", font=("Arial", 15))
 error_label.pack(padx=10, pady=5)
 
 #### connection status frame #####
@@ -88,7 +88,7 @@ connector_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
 # Connection status pane: write once
 ctk.CTkLabel(connector_frame, text="Connection Status", font=("Arial", 16)).pack(pady=(5, 2))
-status_label = ctk.CTkLabel(connector_frame, text="Unknown", text_color="gray", font=("Arial", 14))
+status_label = ctk.CTkLabel(connector_frame, text="Unknown", text_color="gray", font=("Arial", 15))
 status_label.pack(padx=10, pady=5)
 
 
@@ -119,7 +119,7 @@ for name, ch_entry in my_channel_entries.channels.items():
     # currRow + 1 because first row is reserved for AI frame label
     meter_frame.grid(column=currCol, row=currRow+1, padx=10, pady=0, sticky="nsew")
     # print(f"row,col={currRow},{currCol}")
-    meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=200)
+    meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=170, text_font = ctk.CTkFont("Arial", size=14))
     
     
     meter.grid(row=0,column=0, padx=10, pady=10, sticky="nsew")
@@ -143,7 +143,6 @@ def toggle_dropdown(frame,parent_frame,sendBtn, arrowBtn):
         arrowBtn.configure(text="⬇ Ramp")
     else:
         frame.pack(after=parent_frame, pady=5)
-        current_dropdown = frame
         sendBtn.configure(state="disabled")
         arrowBtn.configure(text="⬆")
 
@@ -355,7 +354,9 @@ def process_queue():
             
         elif isinstance(sockResp, dataEntry):
             show_connection_status(online=True)
-            # show_error("")
+            # however, there still might be an error relating to a non-networking event
+            if "192.168.80.1" in error_label.cget("text"):
+                show_error("")
         
             chEntry = my_channel_entries.get_channelEntry_from_GPIOstr(sockResp.gpio_str)
             if chEntry is None:
@@ -402,7 +403,7 @@ def process_queue():
         except Exception as e:
             print(f"Encountered error: {e}")
 
-    app.after(2000000, process_queue)  # Check queue again after 100ms
+    app.after(500, process_queue)  # Check queue again after 100ms
 
 # print("after defined process_queue")
 app.after(0, func=process_queue)
