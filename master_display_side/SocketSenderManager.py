@@ -138,7 +138,6 @@ class SocketSenderManager:
         return True
     
     def place_single_mA(self, ch2send : Channel_Entry, mA_val : float, time : float) -> bool:
-        # !!!!!!!!!! Use only for analog outputs!!!!!!
         # Engineering units to mA conversion happens on the master side. RPi receives only mA values.
         if not ch2send.isValidmA(mA_val):
             return False

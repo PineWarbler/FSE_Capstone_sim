@@ -379,24 +379,26 @@ def process_queue():
                 # print("empty branch for do")
             elif "ao" in chEntry.sig_type.lower(): # response is like "ao ack"
                 # then the response is ack from RPI
+                print(f"chEntry.sig_type is {chEntry.sig_type.lower()}")
                 labelObj = ao_label_objects.get(chEntry.name)
                 labelObj.configure(text=f"{sockResp.val:.{1}f} mA")
                 print(f"updated label to {sockResp.val} mA")
                 
 
-    # finally, place read periodic read requests for ai and di channels
-    # ai channels first
+    ## finally, place read periodic read requests for ai and di channels
+    ## ai channels first
     for name,meter in ai_meter_objects.items():
         # only the ch2send name is important. value can be whatever
         ch = my_channel_entries.getChannelEntry(name)
         if ch.getGPIOStr() is None:
             pass # print("invalid gpio config?")
         else:
-            # pass
-            # print(f"auto-placing read request for {ch.name}")
-            SSM.place_single_EngineeringUnits(ch2send=ch, val_in_eng_units=3.14, time=time.time())
+            # using place_single_mA instead of place_single_EngineeringUnits
+            # because the mA_val is interpreted for `ai` channels only as the number of samples to take
+            # in the averaging filter
+            SSM.place_single_mA(ch2send=ch, mA_val=5, time=time.time())
             
-    # this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
+    ## this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
     for name,label_obj in di_label_objects.items():
         try:
             SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())

@@ -39,7 +39,7 @@
         {
             "name": "SPT 2",
             "sig_type" : "ao",
-            "boardSlotPosition" : 15,
+            "boardSlotPosition" : 39,
             "engineeringUnits" : "PSI",
             "engineeringUnitsLowAmount" : 97.0,
             "engineeringUnitsHighAmount" : 200.0,
@@ -48,7 +48,7 @@
         {
             "name": "MAT 2",
             "sig_type" : "ao",
-            "boardSlotPosition" : 16,
+            "boardSlotPosition" : 99,
             "engineeringUnits" : "Amps",
             "engineeringUnitsLowAmount" : -99,
             "engineeringUnitsHighAmount" : -1,
@@ -154,22 +154,11 @@
         {
             "name": "Motor Status",
             "sig_type" : "do",
-            "boardSlotPosition" : 35,
+            "boardSlotPosition" : 16,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
             "showOnGUI": true
-        }
-    ],
-    "indicator_lights": [
-        {
-            "name": "Pi Networking Status",
-            "sig_type" : "do",
-            "boardSlotPosition" : 15,
-            "engineeringUnits" : null,
-            "engineeringUnitsLowAmount" : 0,
-            "engineeringUnitsHighAmount" : 1,
-            "showOnGUI": false
         }
     ]
 }

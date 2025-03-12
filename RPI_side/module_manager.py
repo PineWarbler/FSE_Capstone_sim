@@ -30,7 +30,12 @@ class Module_Manager:
         self.gpio_manager = GPIO_Manager() # initialize to empty at first
     
     def execute_command(self, gpio_str: str, chType: str, val: float | int) -> Tuple[dataEntry, errorEntry]:
-        '''TODO: write docstring
+        '''
+        Executes a command from the socket, given the module's gpio string, channel type, and value.  This class
+        is responsible for choosing the appropriate driver instance for the requested channel and for allocating
+        a gpio reservation with self.gpio_manager.
+        If `chType` is "ai", then the `val` (int) will be interpreted as the number of measurements to average 
+        (LPF) before returning a value
         '''
         if gpio_str not in self.module_dict:
             print(f"[Module_Manager] making a module entry for {gpio_str} as a {chType}")
@@ -57,7 +62,13 @@ class Module_Manager:
                 errorResponse = None
             valueResponse = None
         elif chType.lower() == "ai": # then it's an R_CLICK instance
-            ma_reading = driverObj.read_mA()
+            # the ai adc readings can be noisy, so do a simple average to attenuate noise
+            numMeasurements = max(int(val), 1) # at least one measurement
+            sum = 0
+            for _ in range(numMeasurements):
+                sum += driverObj.read_mA()
+                
+            ma_reading = sum / numMeasurements
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = ma_reading, time = time.time())
             errorResponse = None
         elif chType.lower() == "do": # then it's a relay channel instance
