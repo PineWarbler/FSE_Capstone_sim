@@ -152,6 +152,16 @@
             "autoPollFrequency" : 1
         },
         {
+            "name": "AOP2",
+            "sig_type" : "di",
+            "boardSlotPosition" : 99,
+            "engineeringUnits" : null,
+            "engineeringUnitsLowAmount" : 0,
+            "engineeringUnitsHighAmount" : 1,
+            "showOnGUI": false,
+            "autoPollFrequency" : 1
+        },
+        {
             "name": "Motor Status",
             "sig_type" : "do",
             "boardSlotPosition" : 16,

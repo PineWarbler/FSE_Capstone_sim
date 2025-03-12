@@ -4,6 +4,7 @@ import queue
 import time
 import os
 import sys
+from collections import deque
 
 current_dir = os.path.dirname(os.path.abspath(__file__)) # Get the current file's directory
 parent_dir = os.path.dirname(current_dir) # Get the parent directory
@@ -77,10 +78,17 @@ digital_inputs_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
 ##### error reporting frame ######
 error_frame = ctk.CTkFrame(main_frame, corner_radius=10)
 error_frame.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
-ctk.CTkLabel(error_frame, text="Errors", font=("Arial", 16)).pack(pady=(5, 2))
+error_frame_label = ctk.CTkLabel(error_frame, text="Errors", font=("Arial", 16))
+error_frame_label.pack(pady=(5, 2))
 # Error message label that can be updated
-error_label = ctk.CTkLabel(error_frame, text="", text_color="red", font=("Arial", 15))
-error_label.pack(padx=10, pady=5)
+error_label = ctk.CTkLabel(error_frame, text="", text_color="red", font=("Arial", 15), wraplength=400, justify="left")
+error_label.pack(padx=10, pady=5, side="left")
+# clear button that clears the most recent error
+error_clear_btn = ctk.CTkButton(error_frame, text="x", fg_color="red", hover_color="red", width=40) # , command=lambda f=frame, n=name: cancel_ramp_callback(frame=f, sigName=n)
+error_clear_btn.pack(padx=0, pady=5, side="right")
+error_clear_btn.pack_forget()
+error_stack_max_len = 20
+error_stack  = deque(maxlen = error_stack_max_len) # only store the last 20 messages to prevent memory hogged by time out errors
 
 #### connection status frame #####
 connector_frame = ctk.CTkFrame(main_frame, corner_radius=10)
@@ -306,20 +314,47 @@ for name, ch_entry in my_channel_entries.channels.items():
         continue
 
     indicator_frame = ctk.CTkFrame(digital_inputs_frame)
-    indicator_frame.pack(pady=10)
+    indicator_frame.pack(pady=10, padx=20, side="left", expand=True)
     indicator_label = ctk.CTkLabel(indicator_frame, text=ch_entry.name)
     indicator_label.pack(side="left", padx=10)
     indicator_light = ctk.CTkLabel(indicator_frame, text="", width=20, height=20, corner_radius=10, fg_color="red")
     di_label_objects[name] = indicator_light
     indicator_light.pack(side="left")
 
+def pop_error():
+    if len(error_stack) == 0:
+        show_error("")
+        return
+    error_stack.pop()
+    if len(error_stack) == 0:
+        show_error("")
+        return
+    err_to_show = error_stack.pop()
+    print(f"after pop_error, len is {len(error_stack)}")
+    show_error(err_to_show) # this function will append it back onto the stack
+    # error_stack.append(err_to_show) # return it onto the stack
+    
+error_clear_btn.configure(command = pop_error)
+    
 # Function to display error message in error_frame
 def show_error(message:str):
     error_label.configure(text=message)
     error_label.configure(text_color="red")
+    if message == "":
+        error_clear_btn.pack_forget()
+    else:
+        error_clear_btn.pack(padx=0, pady=5, side="right")
+        error_stack.append(message)
+    print(len(error_stack))
+    if len(error_stack) >= error_stack_max_len:
+        error_frame_label.configure(text=f"Errors ({len(error_stack)}+)")
+    else:
+        error_frame_label.configure(text=f"Errors ({len(error_stack)})")
+    
     # error_label.configure(wraplength=500) # error_label.winfo_width()-5
     # print(f"error frame width is {error_frame.winfo_width()}")
     # print(f"error frame width is {error_label.winfo_width()}")
+
 
 # Function to write connector_frame with network status
 def show_connection_status(online:bool|None, message:str=""):
@@ -328,7 +363,7 @@ def show_connection_status(online:bool|None, message:str=""):
         status_label.configure(text_color="gray")
         
     if online:
-        status_label.configure(text=f"Connected ✅{message}")
+        status_label.configure(text=f"Connected ✓{message}")
         status_label.configure(text_color="green")
     else:
         status_label.configure(text=f"No Connection ❌{message}")
@@ -405,7 +440,7 @@ def process_queue():
         except Exception as e:
             print(f"Encountered error: {e}")
 
-    app.after(500, process_queue)  # Check queue again after 100ms
+    app.after(200, process_queue)  # Check queue again after 100ms
 
 # print("after defined process_queue")
 app.after(0, func=process_queue)
