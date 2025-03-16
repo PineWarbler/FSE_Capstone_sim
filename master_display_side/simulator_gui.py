@@ -1,3 +1,4 @@
+print("Importing libraries...", end="")
 import customtkinter as ctk
 from tkdial import Meter
 import queue
@@ -18,6 +19,8 @@ import logging
 import traceback
 from datetime import datetime
 
+print("done.")
+print("Initializing window and background processes...")
 
 # log uncaught exceptions to file
 def exception_handler(type, value, tb):
@@ -330,7 +333,7 @@ def pop_error():
         show_error("")
         return
     err_to_show = error_stack.pop()
-    print(f"after pop_error, len is {len(error_stack)}")
+    # print(f"after pop_error, len is {len(error_stack)}")
     show_error(err_to_show) # this function will append it back onto the stack
     # error_stack.append(err_to_show) # return it onto the stack
     
@@ -345,7 +348,7 @@ def show_error(message:str):
     else:
         error_clear_btn.pack(padx=0, pady=5, side="right")
         error_stack.append(message)
-    print(len(error_stack))
+    # print(len(error_stack))
     if len(error_stack) >= error_stack_max_len:
         error_frame_label.configure(text=f"Errors ({len(error_stack)}+)")
     else:
