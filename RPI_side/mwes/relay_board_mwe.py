@@ -1,7 +1,7 @@
 import gpiozero
 import time
 
-outPin = gpiozero.DigitalOutputDevice("GPIO26", initial_value=True)
+outPin = gpiozero.DigitalOutputDevice("GPIO19", initial_value=True)
 
 while True:
     try:

@@ -38,7 +38,7 @@ spi.max_speed_hz = 10000
 spi.no_cs
 
 my_module_manager = Module_Manager(spi = spi)
-indicator_gpio_str = "GPIO13"
+indicator_gpio_str = "GPIO5"
 my_module_manager.make_module_entry(gpio_str=indicator_gpio_str, chType="in") # indicator light
         
 # --- functions ---
@@ -184,7 +184,7 @@ all_threads.append(gp)
 
 # turn on the network status indicator
 # 2:blink rapidly, 1:solid on, 0:off
-_, _ = my_module_manager.execute_command(gpio_str = indicator_gpio_str, chType = "in", val = 1)
+_, _ = my_module_manager.execute_command(gpio_str = indicator_gpio_str, chType = "in", val = 0)
 
 shouldStop = False
 

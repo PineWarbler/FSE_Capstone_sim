@@ -2,7 +2,7 @@ import spidev
 import time
 import gpiozero # because RPi.GPIO is unsupported on RPi5
 
-CS_PIN = "GPIO26" # arbitrary CS pin number on RPI
+CS_PIN = "GPIO20" # arbitrary CS pin number on RPI
     # or an supply an integer. see https://gpiozero.readthedocs.io/en/stable/recipes.html#pin-numbering
 
 def twoBytes_to_counts(byteList: list[int]) -> int:
