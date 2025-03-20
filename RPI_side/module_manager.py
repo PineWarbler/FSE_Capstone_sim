@@ -57,7 +57,7 @@ class Module_Manager:
             print(str(driverObj.dac997_status))
             print("----")
             if driverObj.dac997_status.curr_loop_sts == 1: # then a loop error is happening right now
-                errorResponse = errorEntry(source = f"Analog Output Module", criticalityLevel = "High", description = f"Loop error detected on {gpio_str}.")
+                errorResponse = errorEntry(source = f"ao", criticalityLevel = "High", description = f"Loop error detected:{gpio_str}")
             else:
                 errorResponse = None
             valueResponse = None

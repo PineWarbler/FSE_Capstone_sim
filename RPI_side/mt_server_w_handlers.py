@@ -130,9 +130,12 @@ def commandQueueManager(commandQueue, outQueue):
                         with mutex:
                             outQueue.append(de_resp)
                     else:
+                        resp = dataEntry(chType = f"{de.chType}", gpio_str = de.gpio_str, val = de.val, time = time.time())
                         # populate with an ack response
+                        if err_resp is not None:
+                            resp.val = "NAK" # negative ACK to indicate error
                         with mutex:
-                            outQueue.append(dataEntry(chType = f"{de.chType}", gpio_str = de.gpio_str, val = de.val, time = time.time())) # chtype as ao to avoid error raised by dataEntry class
+                            outQueue.append(resp) # chtype as ao to avoid error raised by dataEntry class
 
                     
                 

@@ -73,8 +73,8 @@ class dataEntry:
     
     @val.setter
     def val(self, o_val):
-        if not isinstance(o_val, (float, int)):
-            raise TypeError(f"Expected a float or int, but received an object of type {type(o_val)}")
+        # if not isinstance(o_val, (float, int)):
+            # raise TypeError(f"Expected a float or int, but received an object of type {type(o_val)}")
 
         self._val = o_val
     
