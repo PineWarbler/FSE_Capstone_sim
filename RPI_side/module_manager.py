@@ -36,6 +36,10 @@ class Module_Manager:
         a gpio reservation with self.gpio_manager.
         If `chType` is "ai", then the `val` (int) will be interpreted as the number of measurements to average 
         (LPF) before returning a value
+
+        :param str gpio_str: the gpio string of the module (e.g. "GPIO13")
+        :param str chType: one of ["ao", "ai", "di", "do"]
+        :param float|int val: the value to write to the module
         '''
         if gpio_str not in self.module_dict:
             print(f"[Module_Manager] making a module entry for {gpio_str} as a {chType}")

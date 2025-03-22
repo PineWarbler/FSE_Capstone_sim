@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 print("Importing libraries...", end="")
 import customtkinter as ctk
 from tkdial import Meter
@@ -6,6 +7,7 @@ import time
 import os
 import sys
 from collections import deque
+import json
 
 current_dir = os.path.dirname(os.path.abspath(__file__)) # Get the current file's directory
 parent_dir = os.path.dirname(current_dir) # Get the parent directory
@@ -20,7 +22,6 @@ import traceback
 from datetime import datetime
 
 print("done.")
-print("Initializing window and background processes...")
 
 # log uncaught exceptions to file
 def exception_handler(type, value, tb):
@@ -30,14 +31,40 @@ def exception_handler(type, value, tb):
     logging.exception(value)
     print(value)
     
+print("Reading config.json...", end="")
 
 # load channel entries from config file
 my_channel_entries = Channel_Entries()
 my_channel_entries.load_from_config_file(config_file_path="config.json")
 
+# now read the `runtime_settings`
+with open("config.json", 'r') as f:
+    all_json = json.load(f)
+
+try:
+    runtime_settings = all_json.get("runtime_settings")
+    error_stack_max_len = max(runtime_settings.get("error_stack_max_len"), 1)
+    enable_verbose_logging = runtime_settings.get("enable_verbose_logging")
+    ai_LPF_boxcar_length = max(runtime_settings.get("ai_LPF_boxcar_length"), 1)
+    poll_buffer_period_ms = max(runtime_settings.get("poll_buffer_period_ms"), 1)
+    socket_timeout_s = max(runtime_settings.get("socket_timeout_s"), 0)
+except ValueError:
+    logging.exception("Failed to parse `config.json` file because of ValueError. Will assert default values.")
+    error_stack_max_len = 20
+    enable_verbose_logging = True
+    ai_LPF_boxcar_length = 5
+    poll_buffer_period_ms = 200
+    socket_timeout_s = 3
+
+print("done")
+
+print("Initializing window and background processes...")
+
+
 socketRespQueue = queue.Queue() # will contain responses from the RPi
 SSM = SocketSenderManager(host="192.168.80.1", port=5000,
-                          q=socketRespQueue, socketTimeout=3, testSocketOnInit=False, loopDelay=1)
+                          q=socketRespQueue, socketTimeout=socket_timeout_s, 
+                          testSocketOnInit=False, loopDelay=1, log=enable_verbose_logging)
 # # we will call this object's methods: `place_ramp`, `place_single_mA`, and `place_single_EngineeringUnits`
 # # to send commands to the RPi
 
@@ -90,7 +117,7 @@ error_label.pack(padx=10, pady=5, side="left")
 error_clear_btn = ctk.CTkButton(error_frame, text="x", fg_color="red", hover_color="red", width=40) # , command=lambda f=frame, n=name: cancel_ramp_callback(frame=f, sigName=n)
 error_clear_btn.pack(padx=0, pady=5, side="right")
 error_clear_btn.pack_forget()
-error_stack_max_len = 20
+
 error_stack  = deque(maxlen = error_stack_max_len) # only store the last 20 messages to prevent memory hogged by time out errors
 
 #### connection status frame #####
@@ -130,7 +157,8 @@ for name, ch_entry in my_channel_entries.channels.items():
     # currRow + 1 because first row is reserved for AI frame label
     meter_frame.grid(column=currCol, row=currRow+1, padx=10, pady=0, sticky="nsew")
     # print(f"row,col={currRow},{currCol}")
-    meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=170, text_font = ctk.CTkFont("Arial", size=14))
+    meter = Meter(meter_frame, scroll_steps=0, interactive=False, radius=170, text_font = ctk.CTkFont("Arial", size=14), integer=False)
+    # integer=True because we're displaying a percentage that doesn't require the default 2 decimal places
     
     
     meter.grid(row=0,column=0, padx=10, pady=10, sticky="nsew")
@@ -189,8 +217,7 @@ def create_dropdown(parent, name):
     button_frame = ctk.CTkFrame(frame)
     button_frame.pack(pady=5)
 
-    sendBtn = ctk.CTkButton(button_frame, text="Save", fg_color="blue")# ,
-                #   command=lambda: save_range_values(name, start_entry, end_entry, rate_entry, frame))
+    sendBtn = ctk.CTkButton(button_frame, text="Send", fg_color="blue")
     sendBtn.pack(side="left", padx=5)
 
     clear_btn = ctk.CTkButton(button_frame, text="Cancel", fg_color="red", command=lambda f=frame, n=name: cancel_ramp_callback(frame=f, sigName=n))
@@ -234,6 +261,11 @@ def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
         startEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
         stopEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
         rateEntry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736
+    else:
+        if unit == "mA":
+            socketRespQueue.put(errorEntry(f"{name} ramp input", criticalityLevel="medium", description=f"Invalid ramp command for {chEntry.name}. Valid range: 4 - 20 mA."))
+        else:
+            socketRespQueue.put(errorEntry(f"{name} ramp input", criticalityLevel="medium", description=f"Invalid ramp command for {chEntry.name}. Valid range: {chEntry.realUnitsLowAmount} - {chEntry.realUnitsHighAmount} {chEntry.units}"))
         
 
 def segmented_button_callback(unit, dminLabel, dmaxLabel, drateLabel):
@@ -259,7 +291,7 @@ for name, ch_entry in my_channel_entries.channels.items():
 
     unitSelector = ctk.CTkSegmentedButton(frame, values=[f"{ch_entry.units}", "mA"], selected_color="green", selected_hover_color="green")
     
-    save_text_button = ctk.CTkButton(frame, text="Save", fg_color="blue", command=lambda n=name, e=input_value_entry, s=unitSelector: place_single(n, e, s))
+    save_text_button = ctk.CTkButton(frame, text="Send", fg_color="blue", command=lambda n=name, e=input_value_entry, s=unitSelector: place_single(n, e, s))
     save_text_button.grid(row=0, column=3, padx=5)
     
     dropdown_frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn = create_dropdown(scrollable_frame, name)
@@ -383,18 +415,27 @@ def process_queue():
         sockResp = socketRespQueue.get() # could be a dataEntry or an errorEntry
         print(f"sockResp is {sockResp}")
         if isinstance(sockResp, errorEntry):
-            
-            if "ethernet" in sockResp.source.lower():
-                show_connection_status(online=False)
+            if sockResp.source.lower() == "ao" and "loop error" in sockResp.description.lower(): # a loop error
+                gpio_str = sockResp.description.split(":")[1].strip() # description is in form: Loop error detected:{gpio_str}
+                chEntry_to_blame = my_channel_entries.get_channelEntry_from_GPIOstr(gpio_str)
+                # if chEntry_to_blame is None:
+                #     print()
+                #     continue
+                show_error(message=f"AO loop error detected for {chEntry_to_blame.name} at board slot {chEntry_to_blame.boardSlotPosition}")
 
-            show_error(message=sockResp.description)
-            print(f"received error entry: {sockResp}")
+            elif "ethernet" in sockResp.source.lower():
+                show_connection_status(online=False)
+                show_error(message=sockResp.description)
+
+            else:
+                show_error(message=sockResp.description)
+                print(f"received error entry: {sockResp}")
             
         elif isinstance(sockResp, dataEntry):
             show_connection_status(online=True)
             # however, there still might be an error relating to a non-networking event
-            if "192.168.80.1" in error_label.cget("text"):
-                show_error("")
+            # if "192.168.80.1" in error_label.cget("text"):
+            #     show_error("")
         
             chEntry = my_channel_entries.get_channelEntry_from_GPIOstr(sockResp.gpio_str)
             if chEntry is None:
@@ -417,10 +458,14 @@ def process_queue():
                 # print("empty branch for do")
             elif "ao" in chEntry.sig_type.lower(): # response is like "ao ack"
                 # then the response is ack from RPI
-                print(f"chEntry.sig_type is {chEntry.sig_type.lower()}")
+                # print(f"chEntry.sig_type is {chEntry.sig_type.lower()}")
                 labelObj = ao_label_objects.get(chEntry.name)
-                labelObj.configure(text=f"{sockResp.val:.{1}f} mA")
-                print(f"updated label to {sockResp.val} mA")
+                # the dataEntry packet response might have NAK for the value if the ao module has a loop error
+                if sockResp.val == "NAK":
+                    labelObj.configure(text=f"ERR")
+                else:
+                    # update label to indicate receiving of ACK echo from RPi
+                    labelObj.configure(text=f"{sockResp.val:.{1}f} mA")
                 
 
     ## finally, place read periodic read requests for ai and di channels
@@ -434,7 +479,7 @@ def process_queue():
             # using place_single_mA instead of place_single_EngineeringUnits
             # because the mA_val is interpreted for `ai` channels only as the number of samples to take
             # in the averaging filter
-            SSM.place_single_mA(ch2send=ch, mA_val=5, time=time.time())
+            SSM.place_single_mA(ch2send=ch, mA_val=ai_LPF_boxcar_length, time=time.time())
             
     ## this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
     for name,label_obj in di_label_objects.items():
@@ -443,7 +488,7 @@ def process_queue():
         except Exception as e:
             print(f"Encountered error: {e}")
 
-    app.after(200, process_queue)  # Check queue again after 100ms
+    app.after(poll_buffer_period_ms, process_queue)  # Check queue again after specified period
 
 # print("after defined process_queue")
 app.after(0, func=process_queue)

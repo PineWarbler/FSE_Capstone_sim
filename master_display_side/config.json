@@ -1,4 +1,12 @@
 {
+    "runtime_settings": {
+        "ai_LPF_boxcar_length" : 5,
+        "error_stack_max_len" : 20,
+        "enable_verbose_logging" : true,
+        "poll_buffer_period_ms" : 200,
+        "socket_timeout_s" : 3
+    },
+
     "signals": [
         {
             "name": "DPT 1",

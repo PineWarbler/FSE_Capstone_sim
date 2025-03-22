@@ -184,7 +184,7 @@ class SocketSenderManager:
             try:
                 self.sock.connect((self.host, self.port))
             except Exception as e:
-                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Attempted socket connection with {self.host} failed within timeout={self.socketTimeout} s.\n{e}", time=time.time()))
+                self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"Attempted socket connection with {self.host} failed within timeout={self.socketTimeout} s. Error message: {e}", time=time.time()))
                 if self.log: self.logger.critical(f"_loopCommandQueue Could not establish a socket connection with host within timeout={self.socketTimeout} seconds. Debug str is {e}")
                 # re-place requests that failed to send back on the queue, unless they're auto-poll requests
                 for el in outgoings:
@@ -204,7 +204,12 @@ class SocketSenderManager:
 
             self.sock.close()
             
-            numErrors = dpm_catch.error_entries or 0 # sometimes returns None, in which case 0 errors
+            # sometimes returns None, in which case 0 errors
+            if dpm_catch.error_entries is None:
+                numErrors = 0
+            else:
+                numErrors = len(dpm_catch.error_entries)
+
             if self.log: self.logger.info(f"_loopCommandQueue: received response from socket in {time.time() - startRTT:.2f} s containing {len(dpm_catch.data_entries)} entries and {numErrors} errors.")
             
             # place the received entries onto the shared queue to be read by the gui

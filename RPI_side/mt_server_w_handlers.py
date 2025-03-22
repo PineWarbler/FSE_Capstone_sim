@@ -105,6 +105,7 @@ def handle_client(conn, addr, commandQueue):
 def commandQueueManager(commandQueue, outQueue):
     # this function runs in a continuous loop, checking for new entries
     # placed on the commandQueue by the handle_client thread
+    # it then calls appropriate module drivers to read/write the requested actions
 
     # call the carrier board object to execute the data entries placed on the outQueue
     print("[commandQueueManager] thread has started")
