@@ -122,30 +122,37 @@ class SocketSenderManager:
         if self.log: self.logger.info(f"[place_ramp] placed ramp command for {ch2send.name} start={start_mA}, stop={stop_mA}, stepPerSecond={stepPerSecond_mA}")
         return True
 
-    def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> bool:
+    def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> tuple[bool, str]:
         ''' use this method to put commands that are not raw mA values. Conversion from engineering units to mA values 
         will happen within this method's call to Channel_Entry.convert_to_packetUnits()
         returns true iff the place request was successful. False if value out of bounds.
         '''
-        if ch2send.getGPIOStr() is None:
-            raise ValueError(f"[technician] you don't have a gpio pin mapped to board slot {ch2send.boardSlotPosition}, even though the user requested {ch2send.name}")
+
         if ch2send.sig_type.lower() == "ao" and not ch2send.isValidEngineeringUnits(val_in_eng_units):
-            return False
+            return (False, f"Value requested ({val_in_eng_units} {ch2send.units}) for {ch2send.name} must be between {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount} {ch2send.units}.")
+        if ch2send.getGPIOStr() is None:
+            return (False, f"GPIO for {ch2send.name} is undefined. Check channel_definitions.py")
+    
         de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=ch2send.convert_to_packetUnits(val_in_eng_units), time=time)
         with self.mutex:
             self.theCommandQueue.put(de)
         if self.log: self.logger.info(f"place_single_EngineeringUnits: {de}")
-        return True
+        return (True, "")
     
-    def place_single_mA(self, ch2send : Channel_Entry, mA_val : float, time : float) -> bool:
+    def place_single_mA(self, ch2send : Channel_Entry, mA_val : float, time : float) -> tuple[bool, str]:
+        # first element of returned tuple is success status: True if no errors. Second element in
+        # tuple is error string (None if no error)
         # Engineering units to mA conversion happens on the master side. RPi receives only mA values.
         if not ch2send.isValidmA(mA_val):
-            return False
+            return (False, f"mA value requested ({mA_val} mA) for {ch2send.name} must be between 4.0 and 20.0 mA.")
+        if ch2send.getGPIOStr() is None:
+            return (False, f"GPIO for {ch2send.name} is undefined. Check channel_definitions.py")
+        
         de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=mA_val, time=time)
         with self.mutex:
             self.theCommandQueue.put(de)
         if self.log: self.logger.info(f"place_single_mA: {de}")
-        return True
+        return (True, "")
 
     def _loopCommandQueue(self) -> None:
         '''A continuous loop that should be run in a background thread. Checks to see if any data entries are (over)due
@@ -209,6 +216,9 @@ class SocketSenderManager:
                 numErrors = 0
             else:
                 numErrors = len(dpm_catch.error_entries)
+            
+            if dpm_catch.data_entries is None:
+                dpm_catch.data_entries = []
 
             if self.log: self.logger.info(f"_loopCommandQueue: received response from socket in {time.time() - startRTT:.2f} s containing {len(dpm_catch.data_entries)} entries and {numErrors} errors.")
             

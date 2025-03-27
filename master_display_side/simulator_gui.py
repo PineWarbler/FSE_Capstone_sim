@@ -48,8 +48,8 @@ try:
     ai_LPF_boxcar_length = max(runtime_settings.get("ai_LPF_boxcar_length"), 1)
     poll_buffer_period_ms = max(runtime_settings.get("poll_buffer_period_ms"), 1)
     socket_timeout_s = max(runtime_settings.get("socket_timeout_s"), 0)
-except ValueError:
-    logging.exception("Failed to parse `config.json` file because of ValueError. Will assert default values.")
+except Exception as e:
+    logging.exception(f"Failed to parse `config.json` file because of error: {e}. Will assert default values.")
     error_stack_max_len = 20
     enable_verbose_logging = True
     ai_LPF_boxcar_length = 5
@@ -229,19 +229,20 @@ def create_dropdown(parent, name):
 def place_single(name:str, entry, segmentedUnitButton):
     val = float(entry.get())
     unit = str(segmentedUnitButton.get())
-    print(f"[place_single] name is {name}, entry is {val}, unit is {unit}")
+    if enable_verbose_logging:
+        print(f"[place_single] name is {name}, entry is {val}, unit is {unit}")
     
     success = None
     if unit == "mA":
-        success = SSM.place_single_mA(ch2send=my_channel_entries.getChannelEntry(sigName=name), mA_val=float(val), time=time.time())
+        success, errorString = SSM.place_single_mA(ch2send=my_channel_entries.getChannelEntry(sigName=name), mA_val=float(val), time=time.time())
         # print(f"mA placement success: {success}")
     else:
-        success = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
-        
+        success, errorString = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=float(val), time=time.time())
+    print(f"success for place_single is {success}")  
     if success:
         entry.delete(0, ctk.END) # clear entry contents. See https://stackoverflow.com/a/74507736    
     else:
-        socketRespQueue.put(errorEntry(f"{name} single input", criticalityLevel="medium", description=f"{name} value: {val} {unit} is outside of valid range"))
+        socketRespQueue.put(errorEntry(f"{name} single input", criticalityLevel="medium", description=errorString))
     
 
 def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
@@ -338,7 +339,7 @@ for name, ch_entry in my_channel_entries.channels.items():
 
 # Digital Inputs
 def toggle_light():
-    indicator_light.configure(fg_color="green" if motor_status_switch.get() else "red")
+    indicator_light.configure(fg_color="green" if motor_status_switch.get() else "gray")
 
 di_label_objects = dict() # key:value = "AOP":<label obj>. Change the fg_color
 ctk.CTkLabel(digital_inputs_frame, text="Digital Inputs", font=("Arial", 16)).pack(pady=10)
@@ -352,7 +353,7 @@ for name, ch_entry in my_channel_entries.channels.items():
     indicator_frame.pack(pady=10, padx=20, side="left", expand=True)
     indicator_label = ctk.CTkLabel(indicator_frame, text=ch_entry.name)
     indicator_label.pack(side="left", padx=10)
-    indicator_light = ctk.CTkLabel(indicator_frame, text="", width=20, height=20, corner_radius=10, fg_color="red")
+    indicator_light = ctk.CTkLabel(indicator_frame, text="", width=20, height=20, corner_radius=10, fg_color="gray")
     di_label_objects[name] = indicator_light
     indicator_light.pack(side="left")
 
@@ -413,7 +414,10 @@ show_connection_status(online=None)
 def process_queue():
     while not socketRespQueue.empty():
         sockResp = socketRespQueue.get() # could be a dataEntry or an errorEntry
-        print(f"sockResp is {sockResp}")
+        
+        if enable_verbose_logging:
+            print(f"sockResp is {sockResp}")
+
         if isinstance(sockResp, errorEntry):
             if sockResp.source.lower() == "ao" and "loop error" in sockResp.description.lower(): # a loop error
                 gpio_str = sockResp.description.split(":")[1].strip() # description is in form: Loop error detected:{gpio_str}
