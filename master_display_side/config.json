@@ -97,7 +97,8 @@
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
             "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "offset_calib_constant" : 0,
+            "slope_calib_constant":1
         },
         {
             "name": "IVT 1",
@@ -107,7 +108,8 @@
             "engineeringUnitsLowAmount" : 0.0,
             "engineeringUnitsHighAmount" : 100.0,
             "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "offset_calib_constant" : 0,
+            "slope_calib_constant":1
         },
         {
             "name": "UVT 2",
@@ -117,7 +119,8 @@
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
             "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "offset_calib_constant" : 0,
+            "slope_calib_constant":1
         },
         {
             "name": "IVT 2",
@@ -127,7 +130,8 @@
             "engineeringUnitsLowAmount" : 0.0,
             "engineeringUnitsHighAmount" : 100.0,
             "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "offset_calib_constant" : 0,
+            "slope_calib_constant":1
         },
         {
             "name": "UVT 3",
@@ -137,7 +141,8 @@
             "engineeringUnitsLowAmount" : 100.0,
             "engineeringUnitsHighAmount" : 0.0,
             "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "offset_calib_constant" : 0,
+            "slope_calib_constant":1
         },
         {
             "name": "IVT 3",
@@ -147,7 +152,8 @@
             "engineeringUnitsLowAmount" : 0.0,
             "engineeringUnitsHighAmount" : 100.0,
             "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "offset_calib_constant" : 0,
+            "slope_calib_constant":1
         },
         {
             "name": "AOP",
@@ -156,8 +162,7 @@
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
-            "showOnGUI": true,
-            "autoPollFrequency" : 1
+            "showOnGUI": true
         },
         {
             "name": "AOP2",
@@ -166,8 +171,7 @@
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
-            "showOnGUI": false,
-            "autoPollFrequency" : 1
+            "showOnGUI": false
         },
         {
             "name": "Motor Status",

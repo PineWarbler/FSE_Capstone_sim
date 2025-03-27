@@ -2,26 +2,13 @@ import json
 
 class Channel_Entry:
     ''' 
-    This class defines each signal that the Master Laptop
+    This class defines each signal that the master computer
     could send or receive to/from the simulator.  
-
-    name: str # like "AOP", "IVT", etc. What the operator will call to send a command
-    boardSlotPosition : int
-        The module's position on the carrier board, as a unique key.
-        It is easy to use a two-digit key. First digit is carrier board number; second
-        digit is the module position on that board.  e.g. 13 -> carrier board 1, module slot 3 
-        But could also be a string, float, or other datatype. 
-        The position on the carrier board in which this module is installed. Used as an intermediate key
-        to map to the GPIO pin. Because it's easier for the user to understand the board slot position than the GPIO pin number...
-    
-    sig_type : str  # one of ["ao", "ai", "do", "di"]
-    # for the digital signals, there are no units, so the following three variables can be None
-    units : str | None # what will be shown on the GUI. e.g. PSI, A, Fahrenheit, etc.
-    realUnitsLowAmount : float | None # lower bound of the signal's magnitude
-    realUnitsHighAmount : float | None # upper bound of the signal's magnitude
     '''
 
     # don't touch this dictionary unless you know what you're doing!
+    # the ribbon cables that connect the RPi to the carrier board
+    # will not need to change during normal usage
     _slot2gpio = {
     11: "GPIO5",
     12: "GPIO6",
@@ -33,7 +20,23 @@ class Channel_Entry:
     }
 
     def __init__(self, name : str, boardSlotPosition : int, sig_type : str, units : str | None,
-                 realUnitsLowAmount : str | None, realUnitsHighAmount : str | None, showOnGUI:bool=True):
+                 realUnitsLowAmount : str | None, realUnitsHighAmount : str | None, showOnGUI:bool=True, 
+                 offset_calib_constant:float|None=None, slope_calib_constant:float|None=None):
+        '''  
+        Args:
+            name (str): like "AOP 1", "IVT 3", etc. What the operator will call to send a command
+            boardSlotPosition (int): location on carrier board at which this module is installed. Used as an intermediate key
+                to map to the GPIO pin, because it's easier for the user to understand the board slot position than the GPIO pin number
+                The module's position on the carrier board, as a unique key.
+                It is easy to use a two-digit key. First digit is carrier board number; second
+                digit is the module position on that board.  e.g. 13 -> carrier board 1, module slot 3 
+                (or can be any unique, hashable object)
+
+            sig_type (str): one of ["ao", "ai", "do", "di"]
+            units (str|None): Engineering units for the channel (e.g. PSI, Amps, Fahrenheit, etc.)
+            realUnitsLowAmount (float|None): realUnitsLowAmount: lower bound of the signal's magnitude in engineering units (Amps, PSI, etc.)
+            realUnitsHighAmount (float|None) : upper bound
+        '''
         self.name = name
         self.boardSlotPosition = boardSlotPosition
         self.sig_type = sig_type
@@ -44,6 +47,14 @@ class Channel_Entry:
 
         self.gpio = self._slot2gpio.get(boardSlotPosition)
     
+        # constants for linear calibration model are only available for input signals, especially analog ones
+        # calibration function transforms raw reading (from RPi) into corrected reading to be displayed on GUI
+        self.useCalibration = False
+        if offset_calib_constant is not None and slope_calib_constant is not None:
+            self.offset_calib_constant = float(offset_calib_constant)
+            self.slope_calib_constant = float(slope_calib_constant)
+            self.useCalibration = True
+        
     def convert_to_packetUnits(self, val):
         # analog (mA) values are converted from engineering units to a mA value
         # digital values are left as 0 or 1
@@ -55,11 +66,18 @@ class Channel_Entry:
             return "invalid sig type"
     
     def mA_to_EngineeringUnits(self, mA_val):
-        ''' Only external call should be by the GUI. (otherwise, this method is should be private)'''
-        if self.sig_type[0].lower() == "a":
-            return ((mA_val-4.0) / (20.0 - 4.0)) * (self.realUnitsHighAmount - self.realUnitsLowAmount) + self.realUnitsLowAmount
-        else:
+        ''' Only external call should be by the GUI to process ai responses from RPi. 
+        (otherwise, this method is should be private)
+        This method also applies the linear calibration model specified by `slope_calib_constant` and
+        `offset_calib_constant`
+        '''
+        if self.sig_type[0].lower() != "a":
             return None
+        
+        if self.useCalibration:
+            mA_val = self.slope_calib_constant*mA_val + self.offset_calib_constant # y=mx+b
+
+        return ((mA_val-4.0) / (20.0 - 4.0)) * (self.realUnitsHighAmount - self.realUnitsLowAmount) + self.realUnitsLowAmount
     
     def EngineeringUnits_to_mA(self, engUnits):
         ''' Only external call should be by the GUI. (otherwise, this method is should be private)'''
@@ -94,32 +112,12 @@ class Channel_Entries:
     def __init__(self):        
         self.channels = dict() # key is name, value is ChannelEntryObj
         # because the main feature of this class is to map the user-friendly name for the signal (e.g. "AOP") with its board slot position and other info
-        # self.channels["Motor Status"] = Channel_Entry(name = "Motor Status", boardSlotPosition = "r1", sig_type="do", units=None, realUnitsLowAmount=None, realUnitsHighAmount=None)
-        # self.channels["UVT"] = Channel_Entry(name="UVT", boardSlotPosition=13, sig_type="ai", units="percent", 
-        #                         realUnitsLowAmount=100, realUnitsHighAmount=0) # note that the analog inputs are measured in percentage of open/close
-        # and that UVT is reversed, meaning that 4mA corresponds to 100%
-
-        # self.channels["SPT"] = Channel_Entry(name="SPT", boardSlotPosition=12, sig_type="ao", units="PSI", 
-                                # realUnitsLowAmount=97.0, realUnitsHighAmount=200.0)
-        # other analog outputs
-        # self.channels["DPT"] = Channel_Entry(name="DPT", boardSlotPosition=None, sig_type="ao", units="PSI", 
-        #                         realUnitsLowAmount=100.0, realUnitsHighAmount=200.0)
-        # self.channels["MAT"] = Channel_Entry(name="MAT", boardSlotPosition=None, sig_type="ao", units="Amps", 
-        #                         realUnitsLowAmount=145, realUnitsHighAmount=300.0)
-
-        # other analog inputs
-        # self.channels["IVT"] = Channel_Entry(name="IVT", boardSlotPosition=None, sig_type="ai", units="percent", 
-        #                         realUnitsLowAmount=0.0, realUnitsHighAmount=100.0)
-
-        # digital inputs
-        # self.channels["AOP"] = Channel_Entry(name="AOP", boardSlotPosition=12, sig_type="di", units="PSI", 
-        #                         realUnitsLowAmount=97.0, realUnitsHighAmount=200.0)
 
     def add_ChannelEntry(self, chEntry: Channel_Entry):
         self.channels[chEntry.name] = chEntry
 
     def getGPIOstr_from_signal_name(self, sigName: str) -> str | None:
-        # sigName is like "AOP", "IVT", etc.
+        # sigName is like "AOP 1", "IVT 3", etc.
         # will return None if that signal name doesn't exist
         ch = self.channels.get(sigName)
         if ch is None:
@@ -143,16 +141,12 @@ class Channel_Entries:
             all_json = json.load(f)
         chs_from_json = all_json.get("signals")
         for s in chs_from_json:
-            self.add_ChannelEntry(Channel_Entry(name=s.get("name"), boardSlotPosition=s.get("boardSlotPosition"), sig_type=s.get("sig_type"), units=s.get("engineeringUnits"),
-                 realUnitsLowAmount=s.get("engineeringUnitsLowAmount"), realUnitsHighAmount=s.get("engineeringUnitsHighAmount"), showOnGUI=s.get("showOnGUI")))
-            
-# print(channels[1].mA_to_EngineeringUnits(4.0))
-# print(channels[1].mA_to_EngineeringUnits(12.0))
-# print(channels[1].mA_to_EngineeringUnits(20.0))
-
-# print(channels[1].EngineeringUnits_to_mA(0))
-# print(channels[1].EngineeringUnits_to_mA(50))
-# print(channels[1].EngineeringUnits_to_mA(100))
-
-# print(channels[2].EngineeringUnits_to_mA(97))
-# print(channels[2].EngineeringUnits_to_mA(199))
+            self.add_ChannelEntry(Channel_Entry(name=s.get("name"), 
+                                                boardSlotPosition=s.get("boardSlotPosition"), 
+                                                sig_type=s.get("sig_type"), 
+                                                units=s.get("engineeringUnits"),
+                                                realUnitsLowAmount=s.get("engineeringUnitsLowAmount"), 
+                                                realUnitsHighAmount=s.get("engineeringUnitsHighAmount"),
+                                                showOnGUI=s.get("showOnGUI"),
+                                                offset_calib_constant=s.get("offset_calib_constant"),
+                                                slope_calib_constant=s.get("slope_calib_constant")))
