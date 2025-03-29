@@ -74,7 +74,11 @@ class Module_Manager:
                 
             ma_reading = sum / numMeasurements
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = ma_reading, time = time.time())
+
             errorResponse = None
+            if ma_reading == 0: # there is always thermal noise on the lines to indicate a valid SPI connection
+                errorResponse = errorEntry(source = "ai", criticalityLevel = "High", description = f"Loop error detected:{gpio_str}")
+
         elif chType.lower() == "do": # then it's a relay channel instance
             print("[module_manager] entered do branch to write val: {bool(val)}")
             driverObj.writeState(state = bool(val))

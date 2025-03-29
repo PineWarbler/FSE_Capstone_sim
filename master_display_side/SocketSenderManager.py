@@ -1,5 +1,16 @@
 import os
 import sys
+import logging
+import socket
+import threading
+import time
+import queue
+from datetime import datetime # for creation of logging filename
+
+# libraries required to perform network ping
+import platform    # For getting the operating system name
+import subprocess  # For executing a shell command
+
 current_dir = os.path.dirname(os.path.abspath(__file__)) # Get the current file's directory
 parent_dir = os.path.dirname(current_dir) # Get the parent directory
 sys.path.append(parent_dir) # Add the parent directory to sys.path
@@ -8,16 +19,7 @@ from CommandQueue import CommandQueue
 from channel_definitions import Channel_Entry # the configuration that defines which signals are connected to the Carrier board
 from PacketBuilder import dataEntry, errorEntry, DataPacketModel
 
-import logging
-import socket
-import threading
-import time
-import queue
-from datetime import datetime # for creation of logging filename
 
-# libraries required to perform network pingf
-import platform    # For getting the operating system name
-import subprocess  # For executing a shell command
 
 class SocketSenderManager:
     logger = logging.getLogger(__name__)
@@ -94,7 +96,7 @@ class SocketSenderManager:
         '''Note: all values must be in mA. Returns True if successful. False if bounding error.'''
 
         if stepPerSecond_mA == 0:
-            if self.log: self.logger.warning(f"place_ramp: zero requested as a step value")
+            if self.log: self.logger.warning("place_ramp: zero requested as a step value")
             return False
         # stop should have same sign as (stop-start). Assume that the user just messed up the sign of stepPerSecond_mA. Change it for them.
         if stepPerSecond_mA/abs(stepPerSecond_mA) != (stop_mA-start_mA)/abs(stop_mA-start_mA):
@@ -111,16 +113,18 @@ class SocketSenderManager:
         timestamp_offsets = self._arange(start=0, stop=len(value_entries), step=1)
         # print(f"value entries are {value_entries}")
         # print(f"timestamp_offsets are {timestamp_offsets}")
+
         refTime = time.time()
+        reportErrorString = ""
         for i in range(0, len(value_entries)):
-            # print(f" {i}: {val2send} at t={refTime + timestamp_offsets[i]}")
-            de = dataEntry(chType = ch2send.sig_type, gpio_str = ch2send.gpio, 
-                        val = float(value_entries[i]), 
-                        time = float(refTime + timestamp_offsets[i])) # convert from np.float64 to regular float
-            with self.mutex:
-                self.theCommandQueue.put(entry = de)
-        if self.log: self.logger.info(f"[place_ramp] placed ramp command for {ch2send.name} start={start_mA}, stop={stop_mA}, stepPerSecond={stepPerSecond_mA}")
-        return True
+            success, errorString = self.place_single_mA(ch2send = ch2send, mA_val = value_entries[i], time = float(refTime + timestamp_offsets[i]))
+            if not success and reportErrorString == "": # only retain a single error message from the entire place_ramp command
+                reportErrorString = errorString
+
+        if reportErrorString == "":
+            return (True, "")
+        else:
+            return (False, reportErrorString)
 
     def place_single_EngineeringUnits(self, ch2send : Channel_Entry, val_in_eng_units : float, time : float) -> tuple[bool, str]:
         ''' use this method to put commands that are not raw mA values. Conversion from engineering units to mA values 
@@ -131,7 +135,7 @@ class SocketSenderManager:
         if ch2send.sig_type.lower() == "ao" and not ch2send.isValidEngineeringUnits(val_in_eng_units):
             return (False, f"Value requested ({val_in_eng_units} {ch2send.units}) for {ch2send.name} must be between {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount} {ch2send.units}.")
         if ch2send.getGPIOStr() is None:
-            return (False, f"GPIO for {ch2send.name} is undefined. Check channel_definitions.py")
+            return (False, f"GPIO for {ch2send.name} is undefined because `boardSlotPosition` is invalid in `config.json` or `channel_definitions.py` has been edited.")
     
         de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=ch2send.convert_to_packetUnits(val_in_eng_units), time=time)
         with self.mutex:
