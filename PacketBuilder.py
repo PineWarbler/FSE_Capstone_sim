@@ -176,7 +176,6 @@ class DataPacketModel:
     def from_socket(cls, active_socket: socket) -> 'DataPacketModel':
         ''' creates an instance of DataPacketModel from the data on the socket input buffer '''
         first_slice = active_socket.recv(4).decode() # apparently, minimum buffer size is 4
-        print("received first_slice: " + str(first_slice))
         
         if len(first_slice) < 4:
             # then there's actually no data to parse. Return an empty class object
@@ -185,7 +184,6 @@ class DataPacketModel:
             return cls(dataEntries = None, msg_type = "d", error_entries=[], time=time.time())
             
         msg_type = first_slice[0] # first byte should be type of message
-        print("msg_type is " + str(msg_type))
         
         # do something with the type? IDK yet
         
@@ -206,12 +204,9 @@ class DataPacketModel:
         except ValueError:
             raise ValueError(f"Expected to find packet length as integer, but got `{built_msg_length}` instead")
             
-        # print("msg_length is " + str(msg_length))
-        
         data_str = remainder
         while len(data_str) < msg_length:
             data_str += active_socket.recv(msg_length-len(data_str)).decode()
-        # print("data string is " + str(data_str))
             
         json_payload = json.loads(data_str)
         
