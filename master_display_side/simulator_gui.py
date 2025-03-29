@@ -43,18 +43,13 @@ with open("config.json", 'r') as f:
 
 try:
     runtime_settings = all_json.get("runtime_settings")
-    error_stack_max_len = max(runtime_settings.get("error_stack_max_len"), 1)
-    enable_verbose_logging = runtime_settings.get("enable_verbose_logging")
-    ai_LPF_boxcar_length = max(runtime_settings.get("ai_LPF_boxcar_length"), 1)
-    poll_buffer_period_ms = max(runtime_settings.get("poll_buffer_period_ms"), 1)
-    socket_timeout_s = max(runtime_settings.get("socket_timeout_s"), 0)
+    error_stack_max_len = max(runtime_settings.get("error_stack_max_len", 20), 1) # second parameter to `get` is default value if key doesn't exist
+    enable_verbose_logging = runtime_settings.get("enable_verbose_logging", True)
+    ai_LPF_boxcar_length = max(runtime_settings.get("ai_LPF_boxcar_length", 5), 1)
+    poll_buffer_period_ms = max(runtime_settings.get("poll_buffer_period_ms", 200), 1)
+    socket_timeout_s = max(runtime_settings.get("socket_timeout_s", 3), 0)
 except Exception as e:
     logging.exception(f"Failed to parse `config.json` file because of error: {e}. Will assert default values.")
-    error_stack_max_len = 20
-    enable_verbose_logging = True
-    ai_LPF_boxcar_length = 5
-    poll_buffer_period_ms = 200
-    socket_timeout_s = 3
 
 print("done")
 
@@ -227,7 +222,11 @@ def create_dropdown(parent, name):
     return [frame, ddminLabel, ddminEntry, ddmaxLabel, ddmaxEntry, ddrateLabel, ddrateEntry, sendBtn]
 
 def place_single(name:str, entry, segmentedUnitButton):
-    val = float(entry.get())
+    try:
+        val = float(entry.get())
+    except ValueError:
+        return
+    
     unit = str(segmentedUnitButton.get())
     if enable_verbose_logging:
         print(f"[place_single] name is {name}, entry is {val}, unit is {unit}")
@@ -246,9 +245,12 @@ def place_single(name:str, entry, segmentedUnitButton):
     
 
 def place_ramp(name:str, startEntry, stopEntry, rateEntry, segmentedUnitButton):
-    startVal = float(startEntry.get())
-    stopVal = float(stopEntry.get())
-    rateVal = float(rateEntry.get())
+    try:
+        startVal = float(startEntry.get())
+        stopVal = float(stopEntry.get())
+        rateVal = float(rateEntry.get())
+    except ValueError:
+        return
     unit = str(segmentedUnitButton.get())
     chEntry = my_channel_entries.getChannelEntry(sigName=name)
     # print(f"[place_ramp] name is {name}, entry is {val}, unit is {unit}")
@@ -366,9 +368,7 @@ def pop_error():
         show_error("")
         return
     err_to_show = error_stack.pop()
-    # print(f"after pop_error, len is {len(error_stack)}")
     show_error(err_to_show) # this function will append it back onto the stack
-    # error_stack.append(err_to_show) # return it onto the stack
     
 error_clear_btn.configure(command = pop_error)
     
@@ -386,10 +386,6 @@ def show_error(message:str):
         error_frame_label.configure(text=f"Errors ({len(error_stack)}+)")
     else:
         error_frame_label.configure(text=f"Errors ({len(error_stack)})")
-    
-    # error_label.configure(wraplength=500) # error_label.winfo_width()-5
-    # print(f"error frame width is {error_frame.winfo_width()}")
-    # print(f"error frame width is {error_label.winfo_width()}")
 
 
 # Function to write connector_frame with network status
@@ -419,13 +415,13 @@ def process_queue():
             print(f"sockResp is {sockResp}")
 
         if isinstance(sockResp, errorEntry):
-            if sockResp.source.lower() == "ao" and "loop error" in sockResp.description.lower(): # a loop error
+            if sockResp.source.lower()[0] == "a" and "loop error" in sockResp.description.lower(): # a loop error
                 gpio_str = sockResp.description.split(":")[1].strip() # description is in form: Loop error detected:{gpio_str}
                 chEntry_to_blame = my_channel_entries.get_channelEntry_from_GPIOstr(gpio_str)
                 # if chEntry_to_blame is None:
                 #     print()
                 #     continue
-                show_error(message=f"AO loop error detected for {chEntry_to_blame.name} at board slot {chEntry_to_blame.boardSlotPosition}")
+                show_error(message=f"loop error detected for {chEntry_to_blame.name} at board slot {chEntry_to_blame.boardSlotPosition}")
 
             elif "ethernet" in sockResp.source.lower():
                 show_connection_status(online=False)
@@ -437,9 +433,6 @@ def process_queue():
             
         elif isinstance(sockResp, dataEntry):
             show_connection_status(online=True)
-            # however, there still might be an error relating to a non-networking event
-            # if "192.168.80.1" in error_label.cget("text"):
-            #     show_error("")
         
             chEntry = my_channel_entries.get_channelEntry_from_GPIOstr(sockResp.gpio_str)
             if chEntry is None:
@@ -466,7 +459,7 @@ def process_queue():
                 labelObj = ao_label_objects.get(chEntry.name)
                 # the dataEntry packet response might have NAK for the value if the ao module has a loop error
                 if sockResp.val == "NAK":
-                    labelObj.configure(text=f"ERR")
+                    labelObj.configure(text="ERR")
                 else:
                     # update label to indicate receiving of ACK echo from RPi
                     labelObj.configure(text=f"{sockResp.val:.{1}f} mA")

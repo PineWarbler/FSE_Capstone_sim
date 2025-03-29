@@ -147,6 +147,6 @@ class Channel_Entries:
                                                 units=s.get("engineeringUnits"),
                                                 realUnitsLowAmount=s.get("engineeringUnitsLowAmount"), 
                                                 realUnitsHighAmount=s.get("engineeringUnitsHighAmount"),
-                                                showOnGUI=s.get("showOnGUI"),
+                                                showOnGUI=s.get("showOnGUI", False),
                                                 offset_calib_constant=s.get("offset_calib_constant"),
                                                 slope_calib_constant=s.get("slope_calib_constant")))
