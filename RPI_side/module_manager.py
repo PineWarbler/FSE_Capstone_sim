@@ -29,13 +29,14 @@ class Module_Manager:
         self.module_dict = dict() # a dict like {"GPIO26" : ["ao", driver_obj]}
         self.gpio_manager = GPIO_Manager() # initialize to empty at first
     
-    def execute_command(self, gpio_str: str, chType: str, val: float | int) -> Tuple[dataEntry, errorEntry]:
+    def execute_command(self, gpio_str: str, chType: str, val: float | int) -> Tuple[dataEntry, list[errorEntry]]:
         '''
         Executes a command from the socket, given the module's gpio string, channel type, and value.  This class
         is responsible for choosing the appropriate driver instance for the requested channel and for allocating
         a gpio reservation with self.gpio_manager.
         If `chType` is "ai", then the `val` (int) will be interpreted as the number of measurements to average 
         (LPF) before returning a value
+        This method can also return multiple error entries. See the implementation for details.
 
         :param str gpio_str: the gpio string of the module (e.g. "GPIO13")
         :param str chType: one of ["ao", "ai", "di", "do"]
@@ -49,11 +50,14 @@ class Module_Manager:
         driverObj = self.module_dict.get(gpio_str)[1] # second element in value list is the driver object
         print(f"[module_manager] driverObj is {driverObj}")
         
+        valueResponse = None # we will update these later
+        errorResponse_list = []
+
         # first element is the channel type
         if chType.lower() == "ao": # then it's a T_CLICK_2 instance
             try:
                 driverObj.write_mA(val)
-            except ValueError:
+            except ValueError: # although the GUI should have already screened out invalid commands...
                 print(f"Transmitter driver refused to assert {val} mA")
             # now check for errors...
             print(f" --- T2 status --- after write {val}")
@@ -61,10 +65,10 @@ class Module_Manager:
             print(str(driverObj.dac997_status))
             print("----")
             if driverObj.dac997_status.curr_loop_sts == 1: # then a loop error is happening right now
-                errorResponse = errorEntry(source = f"ao", criticalityLevel = "High", description = f"Loop error detected:{gpio_str}")
-            else:
-                errorResponse = None
-            valueResponse = None
+                errorResponse_list.append(errorEntry(source = "ao", criticalityLevel = "High", description = f"Loop error detected:{gpio_str}"))
+            if driverObj.dac997_status.dac_res != 7: # defined on datasheet. Indicates that the chip can be reached via SPI.
+                errorResponse_list.append(errorEntry(source = "ao", criticalityLevel = "High", description = f"SPI communication error detected:{gpio_str}"))
+            # don't update the valueResponse with anything. This is no ao signal, so don't return anything
         elif chType.lower() == "ai": # then it's an R_CLICK instance
             # the ai adc readings can be noisy, so do a simple average to attenuate noise
             numMeasurements = max(int(val), 1) # at least one measurement
@@ -75,19 +79,17 @@ class Module_Manager:
             ma_reading = sum / numMeasurements
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = ma_reading, time = time.time())
 
-            errorResponse = None
-            if ma_reading == 0: # there is always thermal noise on the lines to indicate a valid SPI connection
-                errorResponse = errorEntry(source = "ai", criticalityLevel = "High", description = f"Loop error detected:{gpio_str}")
+            if ma_reading == 0: # there is always a small amount of random noise that can be read on the adc chip to indicate a valid SPI connection
+                errorResponse_list.append(errorEntry(source = "ai", criticalityLevel = "High", description = f"SPI communication error detected:{gpio_str}"))
 
         elif chType.lower() == "do": # then it's a relay channel instance
             print("[module_manager] entered do branch to write val: {bool(val)}")
             driverObj.writeState(state = bool(val))
-            valueResponse = None
-            errorResponse = None
+            # don't update either the value response or the error response list
         elif chType.lower() == "di": # then it's a comparator channel instance
             di_value = int(driverObj.readState())
             valueResponse = dataEntry(chType = chType, gpio_str = gpio_str, val = di_value, time = time.time())
-            errorResponse = None
+
         # the "in" chtype is not controlled by packet data. The RPi locally controls the indicator lights, but
         # we still need the GUI to tell the RPi which GPIO pin the lights are using
         elif chType.lower() == "in": # indicator light
@@ -99,12 +101,12 @@ class Module_Manager:
             elif val==0:
                 driverObj.turnOff()
             valueResponse = None
-            errorResponse = errorEntry(source = f"Module Manager", criticalityLevel = "Medium", description = f"The indicator light channel is reserved. Any commands from master will be ignored.")
+            errorResponse_list.append(errorEntry(source = "Module Manager", criticalityLevel = "Medium", description = "The indicator light channel is reserved. Any commands from master will be ignored."))
         else:
             valueResponse = None
-            errorResponse = errorEntry(source = f"Module Manager", criticalityLevel = "Medium", description = f"Invalid channel type given {chType} for module at {gpio_str}.")
+            errorResponse_list.append(errorEntry(source = "Module Manager", criticalityLevel = "Medium", description = f"Invalid channel type given {chType} for module at {gpio_str}."))
 
-        return (valueResponse, errorResponse)
+        return (valueResponse, errorResponse_list)
 
 
     def make_module_entry(self, gpio_str: str, chType: str):
@@ -124,7 +126,6 @@ class Module_Manager:
         elif chType.lower() == "di":
             driverObj = Digital_Input_Module(gpio_in_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "do":
-            print(f"[module_manager.make_module_entry] created a relay channel object with gpio={self.gpio_manager.get_gpio(gpio_str)}") 
             driverObj = RELAY_CHANNEL(gpio_out_pin = self.gpio_manager.get_gpio(gpio_str))
         elif chType.lower() == "in": # this channel is not writable by the master. We include it here so that the 
             # Pi can initialize it at its own startup

@@ -415,13 +415,22 @@ def process_queue():
             print(f"sockResp is {sockResp}")
 
         if isinstance(sockResp, errorEntry):
-            if sockResp.source.lower()[0] == "a" and "loop error" in sockResp.description.lower(): # a loop error
+            if sockResp.source.lower()[0] == "a": # only analog signals throw errors
                 gpio_str = sockResp.description.split(":")[1].strip() # description is in form: Loop error detected:{gpio_str}
                 chEntry_to_blame = my_channel_entries.get_channelEntry_from_GPIOstr(gpio_str)
                 # if chEntry_to_blame is None:
                 #     print()
                 #     continue
-                show_error(message=f"loop error detected for {chEntry_to_blame.name} at board slot {chEntry_to_blame.boardSlotPosition}")
+                if "loop error" in sockResp.description.lower():
+                    # only an analog output module will throw this error
+                    show_error(message=f"loop error detected for {chEntry_to_blame.name} at board slot {chEntry_to_blame.boardSlotPosition}")
+
+                if "SPI communication error detected" in sockResp.description:
+                    # reasons why this error might be raised:
+                    # analog output transmitter: dac_res register contents is not 7 like it always should be
+                    # analog input receiver: if readings from the analog input modules are completely zero
+                    # i.e. show no noise. This symptom is indicative of a failed SPI communication.
+                    show_error(message=f"SPI communication error detected for {chEntry_to_blame.name} at board slot {chEntry_to_blame.boardSlotPosition}")
 
             elif "ethernet" in sockResp.source.lower():
                 show_connection_status(online=False)

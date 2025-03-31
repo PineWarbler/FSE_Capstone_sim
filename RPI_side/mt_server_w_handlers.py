@@ -76,7 +76,7 @@ def handle_client(conn, addr, commandQueue):
 
     # loop infinitely while there's not stuff on the outQueue
     # and there's still stuff remaining on the commandQueue
-    while len(commandQueue) > 0: # len(outQueue) != 0 and 
+    while len(commandQueue) > 0:
         # the commandQueueManager will clear the commandQueue when it finishes the batch
         pass
         
@@ -118,14 +118,14 @@ def commandQueueManager(commandQueue, outQueue):
                     
                     # try to find the carrier board object that corresponds to the data entry
                     # this execute_command method handles the different behaviors necessary for inputs vs outputs
-                    de_resp, err_resp = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
+                    de_resp, err_resp_list = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
                     
                     print(f"   [mt_server_w_handlesr.commandQueueManager] de_resp is {str(de_resp)}")
 
                     # now place the responses onto the outgoing queues for the handle_client thread
-                    if err_resp is not None:
+                    if len(err_resp_list) > 0:
                         with mutex:
-                            errorList.append(err_resp)
+                            errorList.extend(err_resp_list) # append all entries to the end of list
 
                     if de_resp is not None:
                         with mutex:
@@ -133,13 +133,12 @@ def commandQueueManager(commandQueue, outQueue):
                     else:
                         resp = dataEntry(chType = f"{de.chType}", gpio_str = de.gpio_str, val = de.val, time = time.time())
                         # populate with an ack response
-                        if err_resp is not None:
+                        if len(err_resp_list) > 0:
                             resp.val = "NAK" # negative ACK to indicate error
                         with mutex:
                             outQueue.append(resp) # chtype as ao to avoid error raised by dataEntry class
 
                     
-                
                 with mutex:
                     # clearing the command queue is the designated
                     # way of informing the client socket thread that 
@@ -150,16 +149,8 @@ def commandQueueManager(commandQueue, outQueue):
         except KeyboardInterrupt:
             print("commandQueueManager process terminated by keyboardinterrupt")
             return
-        # except Exception as e:
-            # print(f"commandQueueManager process encountered the unknown error: {str(e)}. Will exit after closing modules.")
-            # my_module_manager.release_all_modules()
-            # return
-            # continue
-        
-    
 
 
-    
 # --- main ---
 # we have this as a loop so that if child connections die, the master display can always 
 # re-initiate a connection
