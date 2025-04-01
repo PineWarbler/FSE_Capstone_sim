@@ -10,7 +10,7 @@ class T_CLICK_1:
     BIT_RES = 12 # for the MCP4921
     BITS_PER_TRANSACTION = 16
 
-    CURRENT_OUTPUT_RANGE_MIN = 3 # arbitrarily chosen
+    CURRENT_OUTPUT_RANGE_MIN = 2 # arbitrarily chosen
     CURRENT_OUTPUT_RANGE_MAX = 20.048 # calculated from pcb component choices
     
     def __init__(self, gpio_cs_pin, spi: spidev.SpiDev, SHDNB:int=1, GAB:int=1, BUF:int=0): # originally 1,1,0
@@ -68,9 +68,10 @@ class T_CLICK_1:
 
         self.gpio_cs_pin.value = 0 # initiate transaction by pulling low
         self.spi_master.writebytes(bytesList)
-        self.gpio_cs_pin.value = 0
+        self.gpio_cs_pin.value = 1
     
     def close(self) -> None:
+        self.write_mA(self.CURRENT_OUTPUT_RANGE_MIN)
         return
 
 
@@ -107,13 +108,13 @@ if __name__ == "__main__":
                
     while True:
         try:
-            driverIndex = int("Select index of driver to write to [0,1]: ")
+            driverIndex = int(input("Select index of driver to write to [0,1]: "))
             
             maValStr = input("mA value to write: ")
             
             try:
                 maVal = float(maValStr)
-                if maVal<4 or maVal>21:
+                if maVal<2 or maVal>21:
                     raise ValueError
             except ValueError:
                 print("invalid input. Try again")
@@ -125,10 +126,11 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             break
 
-    spi.close()
 
     for d in drivers:
         d.close()
+        
+    spi.close()
     
     cs1.close()
     cs2.close()
