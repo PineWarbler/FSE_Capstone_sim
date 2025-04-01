@@ -76,9 +76,6 @@ class SocketSenderManager:
         # print(self.cqLoopThreadReference) # print the handle for debugging
         self.cqLoopThreadReference.start()
     
-    # def setThread(self, th):
-    #     self.cqLoopThreadReference = th
-    #     self.cqLoopThreadReference.start()
     def pingHost(self):
         """
         Returns True if host (str) responds to a ping request.

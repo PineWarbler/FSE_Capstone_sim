@@ -9,7 +9,7 @@ sys.path.append("..") # include parent directory in path
 
 from PacketBuilder import dataEntry, errorEntry
 from gpio_manager import GPIO_Manager
-from module_drivers.T_Click_2 import T_CLICK_2
+from module_drivers.T_Click_2 import T_CLICK_1
 from module_drivers.Digital_Input_Module import Digital_Input_Module
 from module_drivers.R_Click import R_CLICK
 from module_drivers.Relay_Channel import RELAY_CHANNEL
@@ -54,20 +54,12 @@ class Module_Manager:
         errorResponse_list = []
 
         # first element is the channel type
-        if chType.lower() == "ao": # then it's a T_CLICK_2 instance
+        if chType.lower() == "ao": # then it's a T_CLICK_1 instance
             try:
                 driverObj.write_mA(val)
-            except ValueError: # although the GUI should have already screened out invalid commands...
-                print(f"Transmitter driver refused to assert {val} mA")
-            # now check for errors...
-            print(f" --- T2 status --- after write {val}")
-            driverObj.read_status_register()
-            print(str(driverObj.dac997_status))
-            print("----")
-            if driverObj.dac997_status.curr_loop_sts == 1: # then a loop error is happening right now
-                errorResponse_list.append(errorEntry(source = "ao", criticalityLevel = "High", description = f"Loop error detected:{gpio_str}"))
-            if driverObj.dac997_status.dac_res != 7: # defined on datasheet. Indicates that the chip can be reached via SPI.
-                errorResponse_list.append(errorEntry(source = "ao", criticalityLevel = "High", description = f"SPI communication error detected:{gpio_str}"))
+            except Exception as e:
+                errorResponse_list.append(errorEntry(source = "ao", criticalityLevel = "High", description = f"{e}. Encountered unexpected exception:{gpio_str}"))
+                        
             # don't update the valueResponse with anything. This is no ao signal, so don't return anything
         elif chType.lower() == "ai": # then it's an R_CLICK instance
             # the ai adc readings can be noisy, so do a simple average to attenuate noise
@@ -120,7 +112,7 @@ class Module_Manager:
             driverObj = R_CLICK(gpio_cs_pin = self.gpio_manager.get_gpio(gpio_str),
                                 spi = self.spi)
         elif chType.lower() == "ao":
-            driverObj = T_CLICK_2(gpio_cs_pin = self.gpio_manager.get_gpio(gpio_str),
+            driverObj = T_CLICK_1(gpio_cs_pin = self.gpio_manager.get_gpio(gpio_str),
                                     spi = self.spi)
         
         elif chType.lower() == "di":
