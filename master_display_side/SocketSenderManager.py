@@ -209,6 +209,8 @@ class SocketSenderManager:
                 dpm_catch = DataPacketModel.from_socket(self.sock)
             except Exception as e:
                 self.qForGUI.put(errorEntry(source="Ethernet Client Socket", criticalityLevel="high", description=f"{e}", time=time.time()))
+                self.sock.close()
+                continue
 
             self.sock.close()
             
