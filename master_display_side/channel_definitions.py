@@ -10,13 +10,24 @@ class Channel_Entry:
     # the ribbon cables that connect the RPi to the carrier board
     # will not need to change during normal usage
     _slot2gpio = {
-    11: "GPIO5",
-    12: "GPIO6",
-    13: "GPIO12",
-    14: "GPIO13",
-    15: "GPIO19",
-    16: "GPIO16"
-    
+    11: "GPIO4",
+    12: "GPIO14",
+    13: "GPIO15",
+    14: "GPIO17",
+    15: "GPIO18",
+    16: "GPIO27",
+    21: "GPIO22",
+    22: "GPIO23",
+    23: "GPIO24",
+    24: "GPIO25",
+    25: "GPIO8",
+    26: "GPIO7",
+    31: "GPIO5",
+    32: "GPIO6",
+    33: "GPIO12",
+    34: "GPIO13",
+    35: "GPIO19",
+    36: "GPIO16"
     }
 
     def __init__(self, name : str, boardSlotPosition : int, sig_type : str, units : str | None,
