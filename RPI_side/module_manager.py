@@ -9,7 +9,7 @@ sys.path.append("..") # include parent directory in path
 
 from PacketBuilder import dataEntry, errorEntry
 from gpio_manager import GPIO_Manager
-from module_drivers.T_Click_2 import T_CLICK_1
+from module_drivers.T_Click_1 import T_CLICK_1
 from module_drivers.Digital_Input_Module import Digital_Input_Module
 from module_drivers.R_Click import R_CLICK
 from module_drivers.Relay_Channel import RELAY_CHANNEL
