@@ -66,7 +66,7 @@ SSM = SocketSenderManager(host="192.168.80.1", port=5000,
 # Configure the main application window
 app = ctk.CTk()
 app.wm_iconbitmap('app_icon.ico')
-app.title("ICS Phase II - Beta")
+app.title("GCC Compressor Simulator v1.0")
 app.geometry(f"{app.winfo_screenwidth()}x{app.winfo_screenheight()}")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
@@ -319,9 +319,11 @@ for name, ch_entry in my_channel_entries.channels.items():
 
 def toggleDOswitch(name:str, ctkSwitch):
     val = ctkSwitch.get() # should be an integer already
-    success = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
-    
-    ctkSwitch.configure(state="disabled") # wait for a response from RPi to enable again
+    success, errorString = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(sigName=name), val_in_eng_units=int(val), time=time.time())
+    if success:
+        ctkSwitch.configure(state="disabled") # wait for a response from RPi to enable again
+    else:
+        show_error(errorString)
         
 # digital outputs
 do_switches = dict() # like name:<switch obj>
@@ -334,8 +336,8 @@ for name, ch_entry in my_channel_entries.channels.items():
         continue
 
     motor_status_switch = ctk.CTkSwitch(digital_outputs_frame, text=ch_entry.name, onvalue=1, offvalue=0)
-    motor_status_switch.configure(command = lambda n=name, switchObj=motor_status_switch: toggleDOswitch(n, motor_status_switch))
-    motor_status_switch.pack(pady=10)
+    motor_status_switch.configure(command = lambda n=name, switchObj=motor_status_switch: toggleDOswitch(n, switchObj))
+    motor_status_switch.pack(side="left", padx=10, expand=True)
     motor_status_switch.select()
     do_switches[name] = motor_status_switch
 
@@ -488,7 +490,9 @@ def process_queue():
     ## this di placer has the same problem with unmapped gpios, so I've commented it out until i fix the ai ^^
     for name,label_obj in di_label_objects.items():
         try:
-            SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())
+            success, errString = SSM.place_single_EngineeringUnits(ch2send=my_channel_entries.getChannelEntry(name), val_in_eng_units=0, time=time.time())
+            if not success:
+                show_error(errString)
         except Exception as e:
             print(f"Encountered error: {e}")
 
