@@ -38,7 +38,7 @@ spi.max_speed_hz = 10000
 spi.no_cs
 
 my_module_manager = Module_Manager(spi = spi)
-indicator_gpio_str = "GPIO5"
+indicator_gpio_str = "GPIO20"
 my_module_manager.make_module_entry(gpio_str=indicator_gpio_str, chType="in") # indicator light
         
 # --- functions ---
@@ -85,7 +85,6 @@ def handle_client(conn, addr, commandQueue):
                               error_entries = errorList, 
                               time = time.time())
     
-    print(f"[mt_server_w_handlers.handle_client] dpm_out is {str(dpm_out)}")
     packet_contents = dpm_out.get_packet_as_string().encode()
     try:
         conn.send(packet_contents)
@@ -98,9 +97,6 @@ def handle_client(conn, addr, commandQueue):
     errorList.clear()
     
     conn.close() # this will flush out all data on output buffer
-
-    print("[thread] ended")
-
    
 def commandQueueManager(commandQueue, outQueue):
     # this function runs in a continuous loop, checking for new entries
@@ -114,14 +110,14 @@ def commandQueueManager(commandQueue, outQueue):
             if len(commandQueue) != 0:
                 # send data to R1000
                 for de in commandQueue: # a list of data entries
-                    print(f"GPIO thread is treating the data for command {str(de)}...")
                     
                     # try to find the carrier board object that corresponds to the data entry
                     # this execute_command method handles the different behaviors necessary for inputs vs outputs
-                    de_resp, err_resp_list = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
+                    try:
+                        de_resp, err_resp_list = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
+                    except Exception as e:
+                        errorList.append(errorEntry(source="RPi", criticalityLevel="High", description=f"unhandled exception: {e}"))
                     
-                    print(f"   [mt_server_w_handlesr.commandQueueManager] de_resp is {str(de_resp)}")
-
                     # now place the responses onto the outgoing queues for the handle_client thread
                     if len(err_resp_list) > 0:
                         with mutex:
@@ -168,7 +164,7 @@ s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) # tell TCP to send out d
 s.bind((host, port))
 s.listen(1)
 
-print(f"socket listening on {socket.gethostbyname(socket.gethostname())}")
+print(f"socket listening on {host}")
 
 all_threads = []
 
@@ -179,7 +175,7 @@ all_threads.append(gp)
 
 # turn on the network status indicator
 # 2:blink rapidly, 1:solid on, 0:off
-_, _ = my_module_manager.execute_command(gpio_str = indicator_gpio_str, chType = "in", val = 0)
+_, _ = my_module_manager.execute_command(gpio_str = indicator_gpio_str, chType = "in", val = 1)
 
 shouldStop = False
 
@@ -215,12 +211,5 @@ finally:
     
     print("shutting down threads.")
     # actually, daemon=True threads will automatically close when main thread finishes
-    # if s:
-        # s.close()
-    # for t in all_threads:
-        # t.join()
-
-
-
 
 print("end of script")

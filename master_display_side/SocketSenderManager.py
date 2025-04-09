@@ -132,7 +132,7 @@ class SocketSenderManager:
         if ch2send.sig_type.lower() == "ao" and not ch2send.isValidEngineeringUnits(val_in_eng_units):
             return (False, f"Value requested ({val_in_eng_units} {ch2send.units}) for {ch2send.name} must be between {ch2send.realUnitsLowAmount} and {ch2send.realUnitsHighAmount} {ch2send.units}.")
         if ch2send.getGPIOStr() is None:
-            return (False, f"GPIO for {ch2send.name} is undefined because `boardSlotPosition` is invalid in `config.json` or `channel_definitions.py` has been edited.")
+            return (False, f"The boardSlotPosition ({ch2send.boardSlotPosition}) for {ch2send.name} is invalid.")
     
         de = dataEntry(chType=ch2send.sig_type, gpio_str=ch2send.getGPIOStr(), val=ch2send.convert_to_packetUnits(val_in_eng_units), time=time)
         with self.mutex:

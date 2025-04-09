@@ -165,18 +165,54 @@
             "showOnGUI": true
         },
         {
-            "name": "AOP2",
+            "name": "AOP 2",
             "sig_type" : "di",
             "boardSlotPosition" : 99,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,
-            "showOnGUI": false
+            "showOnGUI": true
+        },
+        {
+            "name": "AOP 3",
+            "sig_type" : "di",
+            "boardSlotPosition" : 99,
+            "engineeringUnits" : null,
+            "engineeringUnitsLowAmount" : 0,
+            "engineeringUnitsHighAmount" : 1,
+            "showOnGUI": true
         },
         {
             "name": "Motor Status",
             "sig_type" : "do",
             "boardSlotPosition" : 16,
+            "engineeringUnits" : null,
+            "engineeringUnitsLowAmount" : 0,
+            "engineeringUnitsHighAmount" : 1,
+            "showOnGUI": true
+        },
+        {
+            "name": "Motor Status 2",
+            "sig_type" : "do",
+            "boardSlotPosition" : 99,
+            "engineeringUnits" : null,
+            "engineeringUnitsLowAmount" : 0,
+            "engineeringUnitsHighAmount" : 1,
+            "showOnGUI": true
+        },
+        {
+            "name": "Motor Status 3",
+            "sig_type" : "do",
+            "boardSlotPosition" : 99,
+            "engineeringUnits" : null,
+            "engineeringUnitsLowAmount" : 0,
+            "engineeringUnitsHighAmount" : 1,
+            "showOnGUI": true
+        },
+        {
+            "name": "Motor Status 4",
+            "sig_type" : "do",
+            "boardSlotPosition" : 35,
             "engineeringUnits" : null,
             "engineeringUnitsLowAmount" : 0,
             "engineeringUnitsHighAmount" : 1,

@@ -8,7 +8,7 @@ class GPIO_Manager:
 
     # example usage
     # gm = GPIO_Manager()
-    # T_2 = T_CLICK_2(spi = my_spi, cs = gm.getCS(this_sig.gpio)) # the get function will putIfAbsent
+    # T_1 = T_CLICK_1(spi = my_spi, cs = gm.getCS(this_sig.gpio)) # the get function will putIfAbsent
     # gm.release_all_gpios()
 
     def __init__(self):
