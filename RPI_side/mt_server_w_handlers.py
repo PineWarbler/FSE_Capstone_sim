@@ -97,7 +97,22 @@ def handle_client(conn, addr, commandQueue):
     errorList.clear()
     
     conn.close() # this will flush out all data on output buffer
-   
+
+def _replace_double_quotes(s: str):
+    # to satisfy json syntax (required when master parses error messages)
+    return s.replace('"', '`')
+
+def _get_rid_of_trailing_commas(s: str):
+    if len(s) == 0:
+        return s
+    while s[-1] == ",":
+        s = s[0:-1]
+    return s
+
+def _clean_string_for_json(s: str):
+    # escape double quotes and get rid of trailing commas
+    return _replace_double_quotes(_get_rid_of_trailing_commas(s))
+
 def commandQueueManager(commandQueue, outQueue):
     # this function runs in a continuous loop, checking for new entries
     # placed on the commandQueue by the handle_client thread
@@ -116,7 +131,8 @@ def commandQueueManager(commandQueue, outQueue):
                     try:
                         de_resp, err_resp_list = my_module_manager.execute_command(gpio_str = de.gpio_str, chType = de.chType, val = de.val)
                     except Exception as e:
-                        errorList.append(errorEntry(source="RPi", criticalityLevel="High", description=f"unhandled exception: {e}"))
+                        cleaned_error_str = _clean_string_for_json(str(e))
+                        errorList.append(errorEntry(source="RPi", criticalityLevel="High", description=f"unhandled exception: {cleaned_error_str}"))
                     
                     # now place the responses onto the outgoing queues for the handle_client thread
                     if len(err_resp_list) > 0:
